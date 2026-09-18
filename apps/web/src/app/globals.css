@@ -1445,10 +1445,31 @@ textarea::placeholder {
   letter-spacing: 1.1px;
 }
 
-.profile-page,
 .settings-page {
   max-width: 1050px;
   margin: 0 auto;
+}
+.profile-page {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+/* 个人主页左右分栏：左半是个人名片，右半是 TA 的动态流 */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+/* 名片比动态流短，滚动时让它停在视口里；介绍太长时名片内部自己滚 */
+.profile-side {
+  position: sticky;
+  top: 102px;
+  max-height: calc(100vh - 126px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.profile-feed {
+  min-width: 0;
 }
 .back-link {
   display: inline-flex;
@@ -1602,7 +1623,7 @@ textarea::placeholder {
   font-weight: 600;
 }
 .profile-feed-title {
-  margin: 30px 0 18px;
+  margin: 0 0 18px;
 }
 .settings-layout {
   display: grid;
@@ -4874,5 +4895,44 @@ html[data-theme='dark'] .nav-badge {
   /* 小屏顶部空间紧张，未读数交给侧边栏角标 */
   .notifications-unread {
     display: none;
+  }
+}
+
+/* ---------- 个人主页：左右分栏的响应式 ---------- */
+/* 分栏时名片只有半栏宽，封面和字号收一档，避免封面占掉半张名片 */
+@media (min-width: 1151px) {
+  .profile-side .profile-cover {
+    padding: 22px 24px;
+  }
+  .profile-side .cover-motto {
+    margin-top: 15px;
+    font-size: 21px;
+  }
+  .profile-side .cover-orbits {
+    right: -26px;
+    top: -40px;
+    width: 240px;
+    height: 240px;
+  }
+  .profile-side .profile-main {
+    padding: 0 26px 24px;
+  }
+  .profile-side .profile-info h1 {
+    font-size: 22px;
+  }
+  .profile-side .profile-bio {
+    font-size: 12px;
+  }
+}
+/* 窄屏放不下两栏：名片与动态上下堆叠，回到整页滚动 */
+@media (max-width: 1150px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .profile-side {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
