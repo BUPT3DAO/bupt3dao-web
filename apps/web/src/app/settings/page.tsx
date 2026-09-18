@@ -120,7 +120,7 @@ export default function SettingsPage() {
           <p>
             不用注册，不用密码。
             <br />
-            使用 MetaMask 签名登录，即可编辑头像、昵称和自我介绍。
+            使用浏览器钱包签名登录，即可编辑头像、昵称和自我介绍。
           </p>
           <button
             className="btn btn-primary"
