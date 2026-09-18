@@ -4,9 +4,13 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { Markdown } from '@/components/markdown';
 import { api } from '@/lib/api';
 import { displayName, userMetaLine } from '@/lib/format';
 import type { AdminUser, MemberDetails } from '@/types';
+
+/** 与后端 MemberUpdate.introduction 的 max_length 保持一致 */
+const INTRO_MAX = 500;
 
 export function AdminUserCard({
   user,
@@ -204,15 +208,26 @@ export function AdminUserCard({
             </label>
           </div>
           <label className="field">
-            展示介绍
+            展示介绍 <span className="muted">支持 Markdown</span>
             <textarea
               className="textarea"
-              maxLength={500}
+              maxLength={INTRO_MAX}
               value={details.introduction}
               onChange={(e) => setDetails({ ...details, introduction: e.target.value })}
-              placeholder="介绍这位校友的经历、贡献与研究方向"
+              placeholder={
+                '介绍这位校友的经历、贡献与研究方向。\n支持 Markdown：**加粗**、[链接](https://example.com)、- 列表、> 引用'
+              }
             />
+            <span className="muted">
+              Markdown · {details.introduction.length}/{INTRO_MAX}
+            </span>
           </label>
+          {details.introduction.trim() && (
+            <div className="admin-form-preview">
+              <span className="eyebrow">PREVIEW</span>
+              <Markdown source={details.introduction} />
+            </div>
+          )}
           <div className="form-buttons">
             <button
               className="btn btn-ghost btn-sm"

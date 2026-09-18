@@ -202,7 +202,7 @@ Authorization: Bearer <token>
 | POST | `/api/admin/admins` | 添加管理员。body：`{address}` |
 | DELETE | `/api/admin/admins/{address}` | 移除管理员。**只能移除后台添加的，配置在 `ADMIN_ADDRESSES` 里的移除不了** |
 | GET | `/api/admin/posts` | 帖子管理列表。query：`q`、`offset`、`limit` |
-| PUT | `/api/admin/members/{address}` | 设为 / 更新成员风采。body：`{title, cohort, introduction, sort_order}` |
+| PUT | `/api/admin/members/{address}` | 设为 / 更新成员风采。body：`{title, cohort, introduction, sort_order}`，其中 `introduction` 支持 Markdown（≤ 500 字符），校友墙卡片会渲染成富文本 |
 | DELETE | `/api/admin/members/{address}` | 取消成员风采展示 |
 | GET | `/api/admin/articles` | 文章管理列表 |
 | PATCH | `/api/admin/articles/{article_id}/pin` | 置顶 / 取消置顶。body：`{is_pinned}` |

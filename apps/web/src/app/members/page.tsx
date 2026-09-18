@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { Markdown } from '@/components/markdown';
 import { api } from '@/lib/api';
 import { displayName, userMetaLine } from '@/lib/format';
 import type { Member } from '@/types';
@@ -100,12 +101,10 @@ export default function MembersPage() {
         (items.length ? (
           <div className="member-grid">
             {items.map((member) => (
-              <Link
-                key={member.user.address}
-                href={`/u/${member.user.address}`}
-                className="member-card"
-              >
-                <div className="member-card-top">
+              // 介绍里可能带 Markdown 链接，卡片不能再整体包一层 <a>，
+              // 否则出现嵌套链接，服务端与客户端渲染结果会对不上
+              <article className="member-card" key={member.user.address}>
+                <Link className="member-card-top" href={`/u/${member.user.address}`}>
                   <Avatar
                     address={member.user.address}
                     nickname={member.user.nickname}
@@ -113,17 +112,22 @@ export default function MembersPage() {
                     size={68}
                   />
                   <span>{member.cohort || '社团共建者'}</span>
-                </div>
-                <h3>{displayName(member.user)}</h3>
+                </Link>
+                <h3>
+                  <Link href={`/u/${member.user.address}`}>{displayName(member.user)}</Link>
+                </h3>
                 {userMetaLine(member.user) && (
                   <p className="member-card-meta">{userMetaLine(member.user)}</p>
                 )}
                 <strong>{member.title}</strong>
-                <p>{member.introduction || member.user.bio || '这位伙伴的故事，正在继续。'}</p>
-                <div className="member-card-link">
+                <Markdown
+                  className="member-card-intro"
+                  source={member.introduction || member.user.bio || '这位伙伴的故事，正在继续。'}
+                />
+                <Link className="member-card-link" href={`/u/${member.user.address}`}>
                   查看个人主页 <Icon name="upRight" size={17} />
-                </div>
-              </Link>
+                </Link>
+              </article>
             ))}
           </div>
         ) : (

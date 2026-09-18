@@ -2865,6 +2865,7 @@ html[data-theme='dark'] {
     border-color 0.2s,
     transform 0.2s;
   min-width: 0;
+  position: relative;
 }
 .member-card:hover {
   border-color: var(--line-strong);
@@ -3137,6 +3138,16 @@ html[data-theme='dark'] {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
+}
+.admin-form-preview {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+}
+.admin-form-preview .eyebrow {
+  margin-bottom: 9px;
 }
 .form-buttons {
   display: flex;
@@ -4639,6 +4650,42 @@ html[data-theme='dark'] .skeleton {
   color: var(--muted);
   overflow: visible;
   white-space: normal;
+}
+
+/* ---------- 校友墙：展示介绍支持 Markdown ---------- */
+/* 卡片整体仍然可点：标题里的链接铺满整张卡片，
+   介绍里的 Markdown 链接再抬到上层，避免被这层盖住 */
+.member-card h3 a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.member-card .member-card-intro a {
+  position: relative;
+  z-index: 1;
+}
+.member-card .member-card-intro {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+  margin: 18px 0 24px;
+  font-size: 12px;
+  line-height: 1.95;
+}
+/* 卡片尺寸有限，把标题压到正文大小，并收紧块间距 */
+.member-card .member-card-intro :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font-size: 12px;
+}
+.member-card .member-card-intro > * + * {
+  margin-top: 7px;
+}
+.member-card .member-card-intro :is(p, ul, ol, blockquote, pre) {
+  margin: 0;
+}
+.member-card .member-card-intro :is(ul, ol) {
+  padding-left: 18px;
 }
 
 /* ---------- 管理后台：添加管理员 ---------- */
