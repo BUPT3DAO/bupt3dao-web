@@ -132,7 +132,7 @@ export default function SettingsPage() {
               ? '等待钱包确认…'
               : status === 'loading'
                 ? '恢复登录中…'
-                : '连接 MetaMask'}
+                : '连接钱包'}
           </button>
           {walletError && (
             <p className="error-text" role="alert">

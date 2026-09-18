@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
@@ -16,6 +16,7 @@ const TOPICS = ['技术交流', '项目共建', '校园日常'];
 
 export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
   const { status, user, connect } = useWallet();
+  const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
@@ -23,6 +24,21 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  // 侧边栏、个人主页等处用 /forum#composer 指向发帖框，落到这个锚点时直接展开
+  useEffect(() => {
+    const expandFromHash = () => {
+      if (window.location.hash === '#composer') setExpanded(true);
+    };
+    expandFromHash();
+    window.addEventListener('hashchange', expandFromHash);
+    return () => window.removeEventListener('hashchange', expandFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (expanded) titleRef.current?.focus();
+  }, [expanded]);
 
   function insertImage(markdown: string) {
     const next = `${content}${content && !content.endsWith('\n') ? '\n' : ''}${markdown}`;
@@ -52,12 +68,42 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
       setTopic('');
       setContent('');
       setPreview(false);
+      setExpanded(false);
       onPosted(post);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '发布失败，请稍后重试');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // 默认只露一条触发栏，先让访客看到最新帖子，想发帖再展开表单
+  if (!expanded) {
+    return (
+      <section className="card composer-collapsed" id="composer" aria-label="发布新帖">
+        <button type="button" className="composer-open" onClick={() => setExpanded(true)}>
+          {user ? (
+            <Avatar
+              address={user.address}
+              nickname={user.nickname}
+              src={user.avatar_url}
+              size={42}
+            />
+          ) : (
+            <span className="guest-avatar">
+              <Icon name="edit" size={21} />
+            </span>
+          )}
+          <span className="composer-open-text">
+            {user ? '分享你的想法，和大家聊两句…' : '登录后即可发帖'}
+          </span>
+          <span className="btn btn-primary btn-sm composer-open-action">
+            {user ? '发个新帖' : '连接钱包'}
+            <Icon name={user ? 'edit' : 'wallet'} size={14} />
+          </span>
+        </button>
+      </section>
+    );
   }
 
   return (
@@ -77,9 +123,20 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
             </span>
           )}
           <div className="composer-input">
-            <label htmlFor="post-title">{user ? '开个新帖，聊聊你的想法' : '登录后即可发帖'}</label>
+            <div className="composer-input-head">
+              <label htmlFor="post-title">{user ? '开个新帖，聊聊你的想法' : '登录后即可发帖'}</label>
+              <button
+                type="button"
+                className="composer-collapse"
+                onClick={() => setExpanded(false)}
+              >
+                <Icon name="close" size={13} />
+                收起
+              </button>
+            </div>
             <input
               id="post-title"
+              ref={titleRef}
               className="input composer-title"
               value={title}
               maxLength={TITLE_MAX}
@@ -168,7 +225,7 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
       {!user && (
         <div className="composer-security">
           <Icon name="shield" size={13} />
-          仅需 MetaMask 签名登录，无需交易或 Gas 费
+          仅需钱包签名登录，无需交易或 Gas 费
         </div>
       )}
     </section>

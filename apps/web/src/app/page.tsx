@@ -10,7 +10,7 @@ export default function HomePage() {
           <span className="status-dot" /> BUPT3DAO · 开放的 Web3 社区
         </span>
         <h1>
-          从北邮出发。
+          从北邮链协出发。
           <br />与<span>同路人</span>，共建未来。
         </h1>
         <p>

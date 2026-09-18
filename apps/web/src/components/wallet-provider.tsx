@@ -1,6 +1,6 @@
 'use client';
 
-import { BrowserProvider, type Eip1193Provider } from 'ethers';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import {
   createContext,
   useCallback,
@@ -10,21 +10,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
 
 import { ApiError, api, getToken, setToken } from '@/lib/api';
 import type { UserPublic } from '@/types';
-
-/** ethers 的 Eip1193Provider 只声明了 request，钱包插件还会提供事件订阅 */
-interface InjectedWallet extends Eip1193Provider {
-  on?(event: string, listener: (...args: unknown[]) => void): void;
-  removeListener?(event: string, listener: (...args: unknown[]) => void): void;
-}
-
-declare global {
-  interface Window {
-    ethereum?: InjectedWallet;
-  }
-}
 
 export type WalletStatus = 'loading' | 'anonymous' | 'connecting' | 'authenticated';
 
@@ -33,7 +22,6 @@ interface WalletContextValue {
   address: string | null;
   user: UserPublic | null;
   error: string | null;
-  hasProvider: boolean;
   connect: () => Promise<void>;
   logout: () => void;
   /** 资料/头像更新后同步最新用户信息 */
@@ -45,8 +33,9 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 function describeError(cause: unknown): string {
   if (cause instanceof ApiError) return cause.message;
   if (cause instanceof Error) {
-    const code = (cause as { code?: unknown }).code;
-    if (code === 'ACTION_REJECTED' || code === 4001) return '你在钱包里取消了签名';
+    const { code, name } = cause as { code?: unknown; name?: string };
+    // viem / wagmi 用 4001 或 UserRejectedRequestError 表示用户拒绝了请求
+    if (code === 4001 || name === 'UserRejectedRequestError') return '你在钱包里取消了签名';
     return cause.message;
   }
   return '连接钱包失败，请重试';
@@ -57,7 +46,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [user, setUser] = useState<UserPublic | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasProvider, setHasProvider] = useState(false);
+  // 点了「连接钱包」之后等账户真正连上再签名，避免刷新页面就弹签名请求
+  const [awaitingAccount, setAwaitingAccount] = useState(false);
+
+  const { openConnectModal } = useConnectModal();
+  const { address: account, status: accountStatus } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   const logout = useCallback(() => {
     setToken(null);
@@ -100,64 +94,68 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 钱包里切换/断开账户后，原来的登录态不再可信
+  // 在钱包里换了账户，原来的登录态不再可信
   useEffect(() => {
-    const provider = window.ethereum;
-    setHasProvider(Boolean(provider));
-    if (!provider?.on || !provider.removeListener) return;
+    if (!user || !account) return;
+    if (account.toLowerCase() !== user.address) logout();
+  }, [user, account, logout]);
 
-    const handleAccountsChanged = (...args: unknown[]) => {
-      const accounts = args[0] as string[] | undefined;
-      const next = accounts?.[0];
-      if (!next || next.toLowerCase() !== address) logout();
-    };
+  const runSiwe = useCallback(
+    async (walletAddress: string) => {
+      setError(null);
+      setStatus('connecting');
+      try {
+        // 挑战消息仍由后端按 EIP-4361 生成，换钱包不影响登录流程
+        const challenge = await api.nonce(walletAddress);
+        const signature = await signMessageAsync({ message: challenge.message });
+        const session = await api.verify(challenge.message, signature);
 
-    provider.on('accountsChanged', handleAccountsChanged);
-    return () => {
-      provider.removeListener?.('accountsChanged', handleAccountsChanged);
-    };
-  }, [address, logout]);
+        setToken(session.access_token);
+        setUser(session.user);
+        setAddress(session.user.address);
+        setStatus('authenticated');
+      } catch (cause) {
+        setToken(null);
+        setUser(null);
+        setAddress(null);
+        setStatus('anonymous');
+        setError(describeError(cause));
+      }
+    },
+    [signMessageAsync],
+  );
+
+  // 钱包连上后再签名，这样外部只要调一次 connect()
+  useEffect(() => {
+    if (!awaitingAccount) return;
+    if (accountStatus !== 'connected' || !account) return;
+    setAwaitingAccount(false);
+    void runSiwe(account);
+  }, [awaitingAccount, accountStatus, account, runSiwe]);
 
   const connect = useCallback(async () => {
-    if (!window.isSecureContext) {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
       setError('当前为 HTTP 预览地址。绑定域名并启用 HTTPS 后，才能安全使用钱包登录。');
       return;
     }
-    const ethereum = window.ethereum;
-    if (!ethereum) {
-      setError('没有检测到 MetaMask，请先安装小狐狸钱包插件');
+    setError(null);
+
+    // 已经连着钱包就直接签名；否则先弹钱包选择器
+    if (accountStatus === 'connected' && account) {
+      await runSiwe(account);
       return;
     }
-
-    setError(null);
-    setStatus('connecting');
-    try {
-      const accounts = (await ethereum.request({ method: 'eth_requestAccounts' })) as string[];
-      const account = accounts[0];
-      if (!account) throw new Error('钱包没有返回任何账户');
-
-      const provider = new BrowserProvider(ethereum);
-      const challenge = await api.nonce(account);
-      const signer = await provider.getSigner(account);
-      const signature = await signer.signMessage(challenge.message);
-      const session = await api.verify(challenge.message, signature);
-
-      setToken(session.access_token);
-      setUser(session.user);
-      setAddress(session.user.address);
-      setStatus('authenticated');
-    } catch (cause) {
-      setToken(null);
-      setUser(null);
-      setAddress(null);
-      setStatus('anonymous');
-      setError(describeError(cause));
+    if (!openConnectModal) {
+      setError('钱包选择器还没准备好，请刷新页面后重试');
+      return;
     }
-  }, []);
+    setAwaitingAccount(true);
+    openConnectModal();
+  }, [accountStatus, account, openConnectModal, runSiwe]);
 
   const value = useMemo<WalletContextValue>(
-    () => ({ status, address, user, error, hasProvider, connect, logout, applyUser }),
-    [status, address, user, error, hasProvider, connect, logout, applyUser],
+    () => ({ status, address, user, error, connect, logout, applyUser }),
+    [status, address, user, error, connect, logout, applyUser],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

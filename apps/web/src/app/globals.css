@@ -2276,6 +2276,13 @@ textarea::placeholder {
   .composer {
     padding: 17px 15px 0;
   }
+  .composer-open {
+    gap: 10px;
+    padding: 15px;
+  }
+  .composer-open-text {
+    font-size: 12px;
+  }
   .composer-body {
     gap: 10px;
   }
@@ -4279,6 +4286,59 @@ html[data-theme='dark'] .skeleton {
 }
 
 /* ---------- 发帖器：标题 + 板块 + Markdown 正文 ---------- */
+/* 默认折叠成一行触发栏，避免一进论坛就被要求发帖 */
+.composer-collapsed {
+  padding: 0;
+  scroll-margin-top: 105px;
+}
+.composer-open {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 18px 21px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.composer-open:hover {
+  background: var(--bg);
+}
+.composer-open-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.composer-open-action {
+  flex-shrink: 0;
+}
+.composer-input-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.composer-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.composer-collapse:hover {
+  color: var(--accent);
+}
+
 .post-composer .composer-body {
   align-items: center;
 }

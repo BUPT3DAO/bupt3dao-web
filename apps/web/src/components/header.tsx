@@ -26,7 +26,7 @@ function pageName(pathname: string): string {
 }
 
 export function Header() {
-  const { status, user, hasProvider, error, connect, logout } = useWallet();
+  const { status, user, error, connect, logout } = useWallet();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -286,11 +286,6 @@ export function Header() {
         <div className="wallet-notice" role="alert">
           <Icon name="wallet" />
           <span>{error}</span>
-          {!hasProvider && (
-            <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">
-              安装 MetaMask <Icon name="upRight" size={14} />
-            </a>
-          )}
         </div>
       )}
     </>
