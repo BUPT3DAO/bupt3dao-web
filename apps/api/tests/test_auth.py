@@ -60,3 +60,26 @@ def test_signature_from_another_wallet_is_rejected(
     )
 
     assert response.status_code == 401
+
+
+def test_failed_verification_does_not_consume_nonce(
+    client: TestClient, wallet: LocalAccount
+) -> None:
+    """签名校验失败不得作废 nonce。
+
+    回归测试：曾经 /verify 在验签前就消费 nonce，导致任何人提交一个伪造签名
+    即可让目标地址当前有效的 nonce 失效，目标用户随后用自己的合法签名也无法登录
+    （未认证的登录拒绝服务）。
+    """
+    challenge = client.post("/api/auth/nonce", json={"address": wallet.address}).json()
+
+    # 攻击者：地址是公开信息，签名随便填 —— 这次尝试必须失败，且不能烧掉 nonce
+    bad = {"message": challenge["message"], "signature": "0x" + "00" * 65}
+    assert client.post("/api/auth/verify", json=bad).status_code == 401
+
+    # 本人随后提交合法签名，仍应成功登录
+    signature = Account.sign_message(
+        encode_defunct(text=challenge["message"]), wallet.key
+    ).signature.hex()
+    good = {"message": challenge["message"], "signature": signature}
+    assert client.post("/api/auth/verify", json=good).status_code == 200
