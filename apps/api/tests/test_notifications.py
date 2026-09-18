@@ -151,9 +151,7 @@ def test_deleting_a_root_comment_clears_replies_notifications(client, auth, sign
     _comment(client, other_auth, post["id"], "回复回复", reply["id"])
 
     assert (len(_feed(client, auth)["items"]), len(_feed(client, other_auth)["items"])) == (2, 1)
-    deleted = client.delete(
-        f"/api/posts/{post['id']}/comments/{root['id']}", headers=other_auth
-    )
+    deleted = client.delete(f"/api/posts/{post['id']}/comments/{root['id']}", headers=other_auth)
     assert deleted.status_code == 204
     # 一级评论连回复一起删除，对应的消息也要跟着消失
     assert _feed(client, auth)["total"] == 0
