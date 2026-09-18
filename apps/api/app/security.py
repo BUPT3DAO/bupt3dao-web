@@ -54,4 +54,16 @@ def get_current_user(
     user = db.scalar(select(User).where(User.address == address))
     if user is None:
         raise _unauthorized("账号不存在，请重新连接钱包")
+    ensure_active(user)
+    return user
+
+
+def ensure_active(user: User) -> None:
+    if user.is_banned:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "该账号已被封禁，请联系社团管理员")
+
+
+def get_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "需要管理员权限")
     return user

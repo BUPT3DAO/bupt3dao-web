@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import User
 from app.schemas import NonceRequest, NonceResponse, TokenResponse, UserPublic, VerifyRequest
-from app.security import create_access_token, get_current_user
+from app.security import create_access_token, ensure_active, get_current_user
 from app.siwe import (
     SiweError,
     build_message,
@@ -50,6 +50,7 @@ def verify_signature(payload: VerifyRequest, db: Session = Depends(get_db)) -> T
         db.commit()
         db.refresh(user)
 
+    ensure_active(user)
     return TokenResponse(
         access_token=create_access_token(address),
         user=UserPublic.model_validate(user),

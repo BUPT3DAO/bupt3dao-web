@@ -35,7 +35,7 @@ export default function SettingsPage() {
       <div className="settings-page">
         <Link href="/" className="back-link">
           <Icon name="back" size={17} />
-          返回社区广场
+          返回首页
         </Link>
         <div className="page-heading">
           <div>

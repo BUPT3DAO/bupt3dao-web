@@ -91,9 +91,9 @@ export default function ProfilePage() {
 
   return (
     <div className="profile-page">
-      <Link href="/" className="back-link">
+      <Link href="/forum" className="back-link">
         <Icon name="back" size={17} />
-        返回社区广场
+        返回论坛
       </Link>
       <div className="page-heading">
         <div>
@@ -116,8 +116,8 @@ export default function ProfilePage() {
       {error && (
         <div className="inline-notice" role="alert">
           <span>{error}</span>
-          <Link href="/" className="text-link">
-            返回广场 <Icon name="arrow" size={16} />
+          <Link href="/forum" className="text-link">
+            返回论坛 <Icon name="arrow" size={16} />
           </Link>
         </div>
       )}
@@ -212,7 +212,7 @@ export default function ProfilePage() {
                   : '这位伙伴还没有发布动态，期待下一次分享。'}
               </p>
               {isMe && (
-                <Link className="btn btn-primary" href="/#composer">
+                <Link className="btn btn-primary" href="/forum#composer">
                   发布第一条动态 <Icon name="arrow" size={16} />
                 </Link>
               )}

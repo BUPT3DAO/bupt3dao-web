@@ -22,7 +22,7 @@ export function PostCard({ post, onDeleted }: PostCardProps) {
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const isMine = user?.address === post.author.address;
+  const canDelete = user?.address === post.author.address || Boolean(user?.is_admin);
 
   async function handleDelete() {
     if (removing) return;
@@ -71,7 +71,7 @@ export function PostCard({ post, onDeleted }: PostCardProps) {
           <time className="muted" dateTime={post.created_at}>
             {relativeTime(post.created_at)}
           </time>
-          {isMine && (
+          {canDelete && (
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => setConfirming(!confirming)}

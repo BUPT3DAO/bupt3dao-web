@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db import Base, engine
-from app.routers import auth, posts, users
+from app.routers import admin, auth, members, posts, users
 
 # 骨架阶段用 create_all 建表；后续数据模型稳定后可换成 Alembic 迁移
 Base.metadata.create_all(bind=engine)
@@ -27,6 +27,8 @@ api = APIRouter(prefix="/api")
 api.include_router(auth.router)
 api.include_router(posts.router)
 api.include_router(users.router)
+api.include_router(members.router)
+api.include_router(admin.router)
 
 
 @api.get("/health", tags=["system"])

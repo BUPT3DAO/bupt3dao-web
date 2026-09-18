@@ -9,6 +9,7 @@ readonly ACTOR="${2:?Registry username required}"
 readonly RELEASE="$ROOT/releases/$SHA"
 test -f "$ROOT/.env"
 test -f "$RELEASE/docker-compose.yml"
+test -f "$RELEASE/Caddyfile"
 
 # Serialize all deployments, including manual retries outside Actions.
 exec 9>"$ROOT/.deploy.lock"
@@ -35,6 +36,7 @@ compose() {
 compose "$SHA" config --quiet
 # Pull first: registry or network failures must not interrupt the current site.
 compose "$SHA" pull
+compose "$SHA" run --rm --no-deps gateway caddy validate --config /etc/caddy/Caddyfile
 
 if [[ -n "$previous" ]]; then
   # SQLite's backup API provides a consistent snapshot while the app is running.
@@ -68,6 +70,20 @@ port="$(sed -n 's/^WEB_PORT=//p' "$ROOT/.env" | tail -n 1)"
 [[ "$port" =~ ^[0-9]+$ ]]
 curl --fail --silent --show-error --max-time 15 "http://127.0.0.1:$port/api/health"
 curl --fail --silent --show-error --max-time 15 --output /dev/null "http://127.0.0.1:$port/"
+
+# Test TLS against this server while validating the real certificate and hostname.
+# Caddy may need a short interval to complete the first ACME issuance.
+origin="$(sed -n 's/^PUBLIC_WEB_ORIGIN=//p' "$ROOT/.env" | tail -n 1)"
+[[ "$origin" == "https://bupt3dao.club" ]]
+curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
+  --connect-timeout 5 --max-time 15 --resolve bupt3dao.club:443:127.0.0.1 \
+  "$origin/api/health"
+curl --fail --silent --show-error --max-time 15 \
+  --resolve bupt3dao.club:443:127.0.0.1 --output /dev/null "$origin/"
+curl --fail --silent --show-error --retry 6 --retry-delay 5 --retry-all-errors \
+  --connect-timeout 5 --max-time 15 \
+  --resolve www.bupt3dao.club:443:127.0.0.1 --output /dev/null \
+  "https://www.bupt3dao.club/"
 
 printf '%s\n' "$SHA" > "$ROOT/current-sha.tmp"
 mv "$ROOT/current-sha.tmp" "$ROOT/current-sha"

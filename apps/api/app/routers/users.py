@@ -36,6 +36,7 @@ def _to_profile(user: User, post_count: int) -> UserProfile:
         bio=user.bio,
         created_at=user.created_at,
         post_count=post_count,
+        is_admin=user.is_admin,
     )
 
 
@@ -102,7 +103,7 @@ def get_user(address: str, db: Session = Depends(get_db)) -> UserProfile:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
     user = db.scalar(select(User).where(User.address == normalized))
-    if user is None:
+    if user is None or user.is_banned:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "该用户还没有加入社区")
 
     return _to_profile(user, _count_posts(db, user.id))
@@ -121,7 +122,7 @@ def list_user_posts(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
     user = db.scalar(select(User).where(User.address == normalized))
-    if user is None:
+    if user is None or user.is_banned:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "该用户还没有加入社区")
 
     total = _count_posts(db, user.id)

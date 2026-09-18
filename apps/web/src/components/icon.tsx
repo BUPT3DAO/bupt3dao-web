@@ -1,6 +1,9 @@
 import type { CSSProperties } from 'react';
 
 const paths = {
+  sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1 1 M18 18l1 1 M5 19l1-1 M18 6l1-1',
+  moon: 'M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10z',
+  monitor: 'M3 3h18v13H3z M8 21h8 M12 16v5',
   x: 'M4 3h4l12 18h-4L4 3z M20 3l-7 8 M4 21l7-8',
   grid: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   arrow: 'M5 12h14 M13 6l6 6-6 6',

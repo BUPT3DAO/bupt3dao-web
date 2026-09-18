@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { ThemeSwitch } from '@/components/theme-provider';
 import { useWallet } from '@/components/wallet-provider';
 import { displayName } from '@/lib/format';
 
@@ -92,13 +93,23 @@ export function Header() {
           <span className="header-label">COMMUNITY</span>
           <span className="header-divider">/</span>
           <span className="header-page-name">
-            {pathname === '/' ? '社区广场' : pathname === '/settings' ? '编辑资料' : '个人主页'}
+            {pathname === '/'
+              ? '首页'
+              : pathname === '/forum'
+                ? '社区论坛'
+                : pathname === '/members'
+                  ? '校友墙'
+                  : pathname === '/admin'
+                    ? '管理后台'
+                    : pathname === '/guide'
+                      ? '社区指南'
+                      : pathname === '/settings'
+                        ? '编辑资料'
+                        : '个人主页'}
           </span>
         </div>
         <div className="wallet-area">
-          <span className="network-label">
-            <span className="status-dot" /> Web3, together.
-          </span>
+          <ThemeSwitch />
           {user ? (
             <>
               <Link className="wallet-chip" href={`/u/${user.address}`}>
@@ -144,7 +155,12 @@ export function Header() {
         >
           <Icon name="close" size={17} />
         </button>
-        <Link className="brand" href="/" aria-label="BUPT3DAO 首页" onClick={() => setMenuOpen(false)}>
+        <Link
+          className="brand"
+          href="/"
+          aria-label="BUPT3DAO 首页"
+          onClick={() => setMenuOpen(false)}
+        >
           <Image src="/bupt3.svg" alt="BUPT3DAO" width={845} height={215} priority unoptimized />
           <small>BUILD BEYOND BOUNDARIES</small>
         </Link>
@@ -156,8 +172,24 @@ export function Header() {
             aria-current={pathname === '/' ? 'page' : undefined}
           >
             <Icon name="grid" />
-            社区广场
+            首页
             <span className="nav-dot" />
+          </Link>
+          <Link
+            className={pathname === '/forum' ? 'active' : ''}
+            href="/forum"
+            aria-current={pathname === '/forum' ? 'page' : undefined}
+          >
+            <Icon name="message" />
+            社区论坛
+          </Link>
+          <Link
+            className={pathname === '/members' ? 'active' : ''}
+            href="/members"
+            aria-current={pathname === '/members' ? 'page' : undefined}
+          >
+            <Icon name="spark" />
+            校友墙
           </Link>
           {user ? (
             <Link
@@ -182,12 +214,27 @@ export function Header() {
             <Icon name="edit" />
             编辑资料
           </Link>
+          {user?.is_admin && (
+            <Link
+              className={pathname === '/admin' ? 'active' : ''}
+              href="/admin"
+              aria-current={pathname === '/admin' ? 'page' : undefined}
+            >
+              <Icon name="shield" />
+              管理后台
+            </Link>
+          )}
         </nav>
         <div className="sidebar-section-title">
           探索与共建 <span>↗</span>
         </div>
         <nav className="nav secondary-nav" aria-label="社区资源">
-          <a href="https://x.com/BUPT3DAO" target="_blank" rel="noopener noreferrer" aria-label="官方 X（Twitter）：@BUPT3DAO">
+          <a
+            href="https://x.com/BUPT3DAO"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="官方 X（Twitter）：@BUPT3DAO"
+          >
             <Icon name="x" />
             官方动态
             <Icon name="upRight" size={14} />
@@ -202,7 +249,7 @@ export function Header() {
             Web3 学习
             <Icon name="upRight" size={14} />
           </a>
-          <Link href="/#community-guide" onClick={() => setMenuOpen(false)}>
+          <Link href="/guide" onClick={() => setMenuOpen(false)}>
             <Icon name="globe" />
             社区指南
           </Link>
@@ -217,7 +264,7 @@ export function Header() {
               <br />
               变成下一个可能。
             </p>
-            <Link href="/#composer" className="text-link" onClick={() => setMenuOpen(false)}>
+            <Link href="/forum#composer" className="text-link" onClick={() => setMenuOpen(false)}>
               加入讨论 <Icon name="arrow" size={16} />
             </Link>
           </div>

@@ -12,6 +12,7 @@ os.environ["UPLOAD_DIR"] = str(_TMP_DIR / "uploads")
 os.environ["JWT_SECRET"] = "test-only-secret"
 os.environ["SIWE_DOMAIN"] = "localhost:3000"
 os.environ["SIWE_URI"] = "http://localhost:3000"
+os.environ["ADMIN_ADDRESSES"] = "[]"
 
 import pytest  # noqa: E402
 from eth_account import Account  # noqa: E402

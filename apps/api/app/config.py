@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from eth_utils import is_address
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +28,15 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-only-secret-change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7
+    # 仅由部署配置授权，普通用户不能通过编辑资料获得权限。
+    admin_addresses: list[str] = []
+
+    @field_validator("admin_addresses")
+    @classmethod
+    def validate_admin_addresses(cls, values: list[str]) -> list[str]:
+        if any(not is_address(address) for address in values):
+            raise ValueError("ADMIN_ADDRESSES 必须是有效的钱包地址列表")
+        return list(dict.fromkeys(address.lower() for address in values))
 
     # 头像上传
     upload_dir: Path = Path("./data/uploads")

@@ -1,4 +1,15 @@
-import type { Challenge, Post, PostList, TokenResponse, UserProfile, UserPublic } from '@/types';
+import type {
+  AdminUser,
+  Challenge,
+  Member,
+  MemberDetails,
+  PageResult,
+  Post,
+  PostList,
+  TokenResponse,
+  UserProfile,
+  UserPublic,
+} from '@/types';
 
 const TOKEN_KEY = 'bupt3dao.token';
 
@@ -56,6 +67,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  members: (q = '', offset = 0) =>
+    request<PageResult<Member>>(`/members?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`),
+
+  adminUsers: (q = '', offset = 0, featuredOnly = false) =>
+    request<PageResult<AdminUser>>(
+      `/admin/users?q=${encodeURIComponent(q)}&offset=${offset}&limit=12&featured_only=${featuredOnly}`,
+    ),
+
+  adminPosts: (q = '', offset = 0) =>
+    request<PostList>(`/admin/posts?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`),
+
+  banUser: (address: string, isBanned: boolean, reason = '') =>
+    request<AdminUser>(`/admin/users/${address}/ban`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_banned: isBanned, reason }),
+    }),
+
+  featureMember: (address: string, details: MemberDetails) =>
+    request<Member>(`/admin/members/${address}`, { method: 'PUT', body: JSON.stringify(details) }),
+
+  unfeatureMember: (address: string) =>
+    request<void>(`/admin/members/${address}`, { method: 'DELETE' }),
+
   nonce: (address: string) =>
     request<Challenge>('/auth/nonce', {
       method: 'POST',

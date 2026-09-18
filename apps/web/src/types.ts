@@ -7,6 +7,7 @@ export interface UserBrief {
 export interface UserPublic extends UserBrief {
   bio: string;
   created_at: string;
+  is_admin: boolean;
 }
 
 export interface UserProfile extends UserPublic {
@@ -34,4 +35,27 @@ export interface TokenResponse {
 export interface Challenge {
   nonce: string;
   message: string;
+}
+
+export interface MemberDetails {
+  title: string;
+  cohort: string;
+  introduction: string;
+  sort_order: number;
+}
+
+export interface Member extends MemberDetails {
+  user: UserPublic;
+}
+
+export interface AdminUser extends UserPublic {
+  is_banned: boolean;
+  ban_reason: string;
+  post_count: number;
+  featured: Member | null;
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
 }

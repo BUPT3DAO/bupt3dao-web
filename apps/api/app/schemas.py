@@ -27,6 +27,7 @@ class UserBrief(BaseModel):
 class UserPublic(UserBrief):
     bio: str
     created_at: UTCDateTime
+    is_admin: bool = False
 
 
 class UserProfile(UserPublic):
@@ -34,6 +35,7 @@ class UserProfile(UserPublic):
 
 
 class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     nickname: str | None = Field(default=None, max_length=32)
     bio: str | None = Field(default=None, max_length=500)
 
@@ -86,4 +88,43 @@ class PostOut(BaseModel):
 
 class PostListOut(BaseModel):
     items: list[PostOut]
+    total: int
+
+
+class MemberUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=80)
+    cohort: str = Field(default="", max_length=40)
+    introduction: str = Field(default="", max_length=500)
+    sort_order: int = Field(default=0, ge=0, le=10000)
+
+
+class MemberOut(MemberUpdate):
+    model_config = ConfigDict(from_attributes=True)
+
+    user: UserPublic
+
+
+class MemberListOut(BaseModel):
+    items: list[MemberOut]
+    total: int
+
+
+class BanUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    is_banned: bool
+    reason: str = Field(default="", max_length=300)
+
+
+class AdminUserOut(UserPublic):
+    is_banned: bool
+    ban_reason: str = ""
+    post_count: int = 0
+    featured: MemberOut | None = None
+
+
+class AdminUserListOut(BaseModel):
+    items: list[AdminUserOut]
     total: int

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
-from app.models import Post, User
+from app.models import Post, User, UserModeration
 from app.schemas import PostCreate, PostListOut, PostOut
 from app.security import get_current_user
 
@@ -18,9 +18,11 @@ def list_posts(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> PostListOut:
-    total = db.scalar(select(func.count()).select_from(Post)) or 0
+    visible = ~Post.author.has(User.moderation.has(UserModeration.is_banned.is_(True)))
+    total = db.scalar(select(func.count()).select_from(Post).where(visible)) or 0
     posts = db.scalars(
         select(Post)
+        .where(visible)
         .options(selectinload(Post.author))
         .order_by(Post.created_at.desc(), Post.id.desc())
         .limit(limit)
@@ -50,7 +52,7 @@ def delete_post(
     post = db.get(Post, post_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "帖子不存在或已被删除")
-    if post.author_id != user.id:
+    if post.author_id != user.id and not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的帖子")
 
     db.delete(post)
