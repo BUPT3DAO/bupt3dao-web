@@ -1470,7 +1470,11 @@ textarea::placeholder {
 .profile-cover {
   position: relative;
   isolation: isolate;
-  height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  aspect-ratio: 5 / 2;
   padding: 27px 32px;
   overflow: hidden;
   background: #28203e;
@@ -1734,8 +1738,11 @@ textarea::placeholder {
   align-items: center;
   justify-content: flex-end;
   padding: 20px;
-  height: 90px;
+  aspect-ratio: 5 / 2;
   background: #ded9eb;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: #867ca3;
   background-image: repeating-linear-gradient(-30deg, transparent 0 18px, #ffffff30 19px 20px);
 }
@@ -2173,7 +2180,6 @@ textarea::placeholder {
     margin-bottom: 20px;
   }
   .profile-cover {
-    height: 170px;
     padding: 25px;
   }
   .profile-main {
@@ -2397,7 +2403,6 @@ textarea::placeholder {
     letter-spacing: 0.6px;
   }
   .profile-cover {
-    height: 160px;
     padding: 21px;
   }
   .cover-motto {
@@ -4115,7 +4120,7 @@ html[data-theme='dark'] .skeleton {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 88px;
+  aspect-ratio: 5 / 2;
   background: linear-gradient(135deg, #3a2f5f, #6950b5);
   background-position: center;
   background-size: cover;
@@ -4508,6 +4513,11 @@ html[data-theme='dark'] .skeleton {
 }
 
 /* ---------- 个人主页背景图 ---------- */
+.profile-cover[style] {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
 .profile-cover[style] > .cover-scrim {
   position: absolute;
   inset: 0;
@@ -4528,7 +4538,7 @@ html[data-theme='dark'] .skeleton {
   justify-content: center;
   flex-shrink: 0;
   width: 210px;
-  height: 78px;
+  aspect-ratio: 5 / 2;
   border-radius: 10px;
   background: linear-gradient(135deg, #3a2f5f, #6950b5);
   background-position: center;
@@ -4635,6 +4645,8 @@ html[data-theme='dark'] .skeleton {
   }
   .banner-preview {
     width: 100%;
+    max-width: 320px;
+    align-self: flex-start;
   }
   .field-row {
     grid-template-columns: minmax(0, 1fr);

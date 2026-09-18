@@ -18,6 +18,50 @@ const LABEL_MAX = 24;
 const URL_MAX = 300;
 const MAX_LINKS = 5;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const BANNER_RATIO = 5 / 2;
+const BANNER_MAX_WIDTH = 1500;
+
+/** 背景图统一按 5:2 展示，上传前先居中裁剪，超出长边的部分裁掉。 */
+async function cropBanner(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const { width, height } = bitmap;
+    let sourceWidth = width;
+    let sourceHeight = height;
+    if (width / height > BANNER_RATIO) {
+      sourceWidth = Math.round(height * BANNER_RATIO);
+    } else if (width / height < BANNER_RATIO) {
+      sourceHeight = Math.round(width / BANNER_RATIO);
+    }
+    const targetWidth = Math.min(sourceWidth, BANNER_MAX_WIDTH);
+    const targetHeight = Math.round(targetWidth / BANNER_RATIO);
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('当前浏览器不支持图片裁剪');
+    context.drawImage(
+      bitmap,
+      Math.round((width - sourceWidth) / 2),
+      Math.round((height - sourceHeight) / 2),
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight,
+    );
+    // GIF 裁完只剩单帧，统一落到 PNG，保留可能的透明通道
+    const type = file.type === 'image/gif' ? 'image/png' : file.type;
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, type, 0.92),
+    );
+    if (!blob) throw new Error('图片裁剪失败');
+    return new File([blob], 'banner', { type });
+  } finally {
+    bitmap.close();
+  }
+}
 
 export default function SettingsPage() {
   const { status, user, error: walletError, connect, applyUser } = useWallet();
@@ -216,7 +260,9 @@ export default function SettingsPage() {
     setMessage(null);
     setError(null);
     try {
-      const updated = await api.uploadBanner(file);
+      // 解不开的图片直接传原图，展示端仍会按 5:2 裁切
+      const upload = await cropBanner(file).catch(() => file);
+      const updated = await api.uploadBanner(upload);
       applyUser(updated);
       setMessage('主页背景图已更新');
     } catch (cause) {
@@ -275,7 +321,9 @@ export default function SettingsPage() {
             </div>
             <div className="banner-editor-text">
               <h2>主页背景图</h2>
-              <p className="hint">出现在你的个人主页顶部与悬浮名片里，建议用 3:1 的横图。</p>
+              <p className="hint">
+                出现在你的个人主页顶部与悬浮名片里，展示为 5:2 的横图，建议直接上传 5:2 的图片。
+              </p>
               <label className="btn btn-ghost" htmlFor="banner-input">
                 {uploadingBanner ? '上传中…' : user.banner_url ? '更换背景图' : '上传背景图'}
               </label>
@@ -287,7 +335,9 @@ export default function SettingsPage() {
                 onChange={handleBannerChange}
                 disabled={busy}
               />
-              <p className="hint">支持 PNG / JPEG / WebP / GIF，不超过 4 MB。</p>
+              <p className="hint">
+                支持 PNG / JPEG / WebP / GIF，不超过 4 MB；尺寸不是 5:2 时会自动按长边居中裁剪。
+              </p>
             </div>
           </section>
 
