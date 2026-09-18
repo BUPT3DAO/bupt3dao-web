@@ -26,7 +26,7 @@ def test_update_profile_requires_login(client: TestClient) -> None:
 
 
 def test_public_profile_shows_post_count(client: TestClient, auth: dict[str, str]) -> None:
-    client.post("/api/posts", json={"content": "数一数"}, headers=auth)
+    client.post("/api/posts", json={"title": "数一数", "content": "数一数"}, headers=auth)
     address = client.get("/api/auth/me", headers=auth).json()["address"]
 
     profile = client.get(f"/api/users/{address}")
@@ -64,6 +64,53 @@ def test_upload_avatar_rejects_non_image(client: TestClient, auth: dict[str, str
     )
 
     assert response.status_code == 400
+
+
+def test_upload_banner_and_profile_shows_it(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.post(
+        "/api/users/me/banner",
+        files={"file": ("banner.png", io.BytesIO(_PNG_BYTES), "image/png")},
+        headers=auth,
+    )
+
+    assert response.status_code == 200
+    banner_url = response.json()["banner_url"]
+    assert banner_url.startswith("/uploads/")
+    assert client.get(banner_url).status_code == 200
+
+    address = response.json()["address"]
+    assert client.get(f"/api/users/{address}").json()["banner_url"] == banner_url
+    # 发帖人摘要里也带上背景图，悬浮卡片要用
+    post = client.post(
+        "/api/posts", json={"title": "背景图", "content": "看卡片"}, headers=auth
+    ).json()
+    assert post["author"]["banner_url"] == banner_url
+
+
+def test_upload_inline_image(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.post(
+        "/api/users/me/images",
+        files={"file": ("shot.png", io.BytesIO(_PNG_BYTES), "image/png")},
+        headers=auth,
+    )
+
+    assert response.status_code == 200
+    assert client.get(response.json()["url"]).status_code == 200
+    assert (
+        client.post(
+            "/api/users/me/images",
+            files={"file": ("note.txt", io.BytesIO(b"hello"), "text/plain")},
+            headers=auth,
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/api/users/me/images",
+            files={"file": ("shot.png", io.BytesIO(_PNG_BYTES), "image/png")},
+        ).status_code
+        == 401
+    )
 
 
 def test_invalid_address_returns_400(client: TestClient) -> None:

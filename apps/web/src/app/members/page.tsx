@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { api } from '@/lib/api';
-import { displayName } from '@/lib/format';
+import { displayName, userMetaLine } from '@/lib/format';
 import type { Member } from '@/types';
 
 export default function MembersPage() {
@@ -115,6 +115,9 @@ export default function MembersPage() {
                   <span>{member.cohort || '社团共建者'}</span>
                 </div>
                 <h3>{displayName(member.user)}</h3>
+                {userMetaLine(member.user) && (
+                  <p className="member-card-meta">{userMetaLine(member.user)}</p>
+                )}
                 <strong>{member.title}</strong>
                 <p>{member.introduction || member.user.bio || '这位伙伴的故事，正在继续。'}</p>
                 <div className="member-card-link">

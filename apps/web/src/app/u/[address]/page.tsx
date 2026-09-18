@@ -6,11 +6,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { Markdown } from '@/components/markdown';
 import { PostCard } from '@/components/post-card';
 import { useWallet } from '@/components/wallet-provider';
 import { ApiError, api } from '@/lib/api';
-import { displayName } from '@/lib/format';
-import type { Post, UserProfile } from '@/types';
+import { cohortLabel, displayName, hostLabel } from '@/lib/format';
+import type { PostSummary, UserProfile } from '@/types';
 
 export default function ProfilePage() {
   const params = useParams<{ address: string }>();
@@ -18,7 +19,7 @@ export default function ProfilePage() {
   const { user } = useWallet();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -125,18 +126,29 @@ export default function ProfilePage() {
       {!loading && profile && (
         <>
           <section className="card profile-card">
-            <div className="profile-cover">
-              <span className="eyebrow">BUPT3DAO / COMMUNITY MEMBER</span>
-              <div className="cover-orbits" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </div>
-              <span className="cover-motto">
-                Stay curious.
-                <br />
-                <em>Build together.</em>
-              </span>
+            <div
+              className="profile-cover"
+              style={
+                profile.banner_url ? { backgroundImage: `url(${profile.banner_url})` } : undefined
+              }
+            >
+              {profile.banner_url ? (
+                <span className="cover-scrim" aria-hidden="true" />
+              ) : (
+                <>
+                  <span className="eyebrow">BUPT3DAO / COMMUNITY MEMBER</span>
+                  <div className="cover-orbits" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                  <span className="cover-motto">
+                    Stay curious.
+                    <br />
+                    <em>Build together.</em>
+                  </span>
+                </>
+              )}
             </div>
             <div className="profile-main">
               <div className="profile-avatar-row">
@@ -167,10 +179,58 @@ export default function ProfilePage() {
                   <Icon name={copied ? 'check' : 'link'} size={14} />
                   <span className="visually-hidden">{copied ? '已复制' : '复制钱包地址'}</span>
                 </button>
+                {(profile.cohort ||
+                  profile.school ||
+                  profile.major ||
+                  profile.university) && (
+                  <div className="profile-details">
+                    {profile.cohort && (
+                      <span className="profile-chip">
+                        <Icon name="cap" size={14} />
+                        <span>{cohortLabel(profile.cohort)}</span>
+                      </span>
+                    )}
+                    {profile.school && (
+                      <span className="profile-chip">
+                        <Icon name="book" size={14} />
+                        <span>{profile.school}</span>
+                      </span>
+                    )}
+                    {profile.major && (
+                      <span className="profile-chip">
+                        <Icon name="code" size={14} />
+                        <span>{profile.major}</span>
+                      </span>
+                    )}
+                    {profile.university && (
+                      <span className="profile-chip">
+                        <Icon name="globe" size={14} />
+                        <span>{profile.university}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
                 {profile.bio ? (
-                  <p className="profile-bio">{profile.bio}</p>
+                  <Markdown source={profile.bio} className="profile-bio" />
                 ) : (
                   <p className="muted">这个人很低调，还没有写自我介绍。</p>
+                )}
+                {profile.links.length > 0 && (
+                  <div className="profile-links">
+                    {profile.links.map((link, index) => (
+                      <a
+                        key={`${link.url}-${index}`}
+                        className="profile-link"
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={link.url}
+                      >
+                        <Icon name="link" size={15} />
+                        <span>{link.label || hostLabel(link.url)}</span>
+                      </a>
+                    ))}
+                  </div>
                 )}
                 <div className="profile-meta">
                   <span>

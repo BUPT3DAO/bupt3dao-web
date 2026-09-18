@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { api } from '@/lib/api';
-import { displayName } from '@/lib/format';
+import { displayName, userMetaLine } from '@/lib/format';
 import type { AdminUser, MemberDetails } from '@/types';
 
 export function AdminUserCard({
@@ -56,6 +56,7 @@ export function AdminUserCard({
         <Avatar address={user.address} nickname={user.nickname} src={user.avatar_url} size={44} />
         <div className="admin-user-identity">
           <Link href={`/u/${user.address}`}>{displayName(user)}</Link>
+          {userMetaLine(user) && <span className="admin-user-detail">{userMetaLine(user)}</span>}
           <span className="mono">{user.address}</span>
         </div>
         <div className="admin-badges">

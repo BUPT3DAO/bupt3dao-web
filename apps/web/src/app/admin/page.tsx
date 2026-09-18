@@ -3,20 +3,36 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
+import { AdminArticleRow } from '@/components/admin-article-row';
 import { AdminUserCard } from '@/components/admin-user-card';
+import { Avatar } from '@/components/avatar';
 import { PostCard } from '@/components/post-card';
 import { useWallet } from '@/components/wallet-provider';
 import { api } from '@/lib/api';
-import type { AdminUser, Post } from '@/types';
+import { shortAddress, userMetaLine } from '@/lib/format';
+import type { AdminEntry, AdminUser, ArticleSummary, PostSummary } from '@/types';
 
-const tabs = ['用户管理', '帖子管理', '校友墙管理'] as const;
+const tabs = ['用户管理', '帖子管理', '文章管理', '校友墙管理', '管理员'] as const;
 type Tab = (typeof tabs)[number];
+
+const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'spark' | 'shield'> = {
+  用户管理: 'user',
+  帖子管理: 'message',
+  文章管理: 'book',
+  校友墙管理: 'spark',
+  管理员: 'shield',
+};
 
 export default function AdminPage() {
   const { user, status, connect } = useWallet();
   const [tab, setTab] = useState<Tab>('用户管理');
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostSummary[]>([]);
+  const [articles, setArticles] = useState<ArticleSummary[]>([]);
+  const [admins, setAdmins] = useState<AdminEntry[]>([]);
+  const [newAdmin, setNewAdmin] = useState('');
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminError, setAdminError] = useState('');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -33,10 +49,19 @@ export default function AdminPage() {
     setError('');
     async function load() {
       try {
-        if (tab === '帖子管理') {
+        if (tab === '管理员') {
+          const data = await api.listAdmins();
+          if (!cancelled) setAdmins(data.items);
+        } else if (tab === '帖子管理') {
           const data = await api.adminPosts(query, page * 12);
           if (!cancelled) {
             setPosts(data.items);
+            setTotal(data.total);
+          }
+        } else if (tab === '文章管理') {
+          const data = await api.adminArticles(query, page * 12);
+          if (!cancelled) {
+            setArticles(data.items);
             setTotal(data.total);
           }
         } else {
@@ -73,6 +98,37 @@ export default function AdminPage() {
     event.preventDefault();
     setQuery(search.trim());
     setPage(0);
+  }
+
+  async function addAdmin(event: FormEvent) {
+    event.preventDefault();
+    const address = newAdmin.trim();
+    if (!address || adminBusy) return;
+    setAdminBusy(true);
+    setAdminError('');
+    try {
+      await api.addAdmin(address);
+      setNewAdmin('');
+      changed('管理员已添加');
+    } catch (cause) {
+      setAdminError(cause instanceof Error ? cause.message : '添加失败，请稍后重试');
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function revokeAdmin(address: string) {
+    if (!window.confirm('移除后，该地址将失去后台权限。确定移除？')) return;
+    setAdminBusy(true);
+    setAdminError('');
+    try {
+      await api.removeAdmin(address);
+      changed('管理员权限已移除');
+    } catch (cause) {
+      setAdminError(cause instanceof Error ? cause.message : '移除失败，请稍后重试');
+    } finally {
+      setAdminBusy(false);
+    }
   }
 
   if (!user?.is_admin)
@@ -116,6 +172,25 @@ export default function AdminPage() {
       </div>
     );
 
+  // 列表已按「置顶优先 + 顺序号」返回，这里补上展示用的顺序号与可移动状态
+  const pinnedTotal = articles.filter((item) => item.is_pinned).length;
+  let pinnedSeen = 0;
+  const articleRows = articles.map((article) => {
+    const position = article.is_pinned ? (pinnedSeen += 1) : null;
+    return {
+      article,
+      position,
+      canMoveUp: position !== null && position > 1,
+      canMoveDown: position !== null && position < pinnedTotal,
+    };
+  });
+  const isEmpty =
+    tab === '帖子管理'
+      ? posts.length === 0
+      : tab === '文章管理'
+        ? articles.length === 0
+        : users.length === 0;
+
   return (
     <div className="admin-page">
       <div className="page-heading">
@@ -139,10 +214,7 @@ export default function AdminPage() {
             aria-pressed={tab === name}
             onClick={() => switchTab(name)}
           >
-            <Icon
-              name={name === '用户管理' ? 'user' : name === '帖子管理' ? 'message' : 'spark'}
-              size={18}
-            />
+            <Icon name={tabIcons[name]} size={18} />
             {name}
           </button>
         ))}
@@ -151,11 +223,15 @@ export default function AdminPage() {
         <div>
           <h2>{tab}</h2>
           <p>
-            {tab === '校友墙管理'
-              ? '只列出已上墙成员。在「用户管理」中搜索并添加新校友；被封禁成员不会公开展示。'
-              : tab === '帖子管理'
-                ? '查看全部帖子（含被封禁用户的帖子）。删除操作不可撤销。'
-                : '从已注册成员中选择。可按昵称或完整钱包地址查找；管理员账号不可在此封禁。'}
+            {tab === '管理员'
+              ? '管理员可以添加新的管理员，无需审批；对方的权限在其钱包登录后立即生效。服务器环境变量里的管理员不在这里移除。'
+              : tab === '校友墙管理'
+                ? '只列出已上墙成员。在「用户管理」中搜索并添加新校友；被封禁成员不会公开展示。'
+                : tab === '帖子管理'
+                  ? '查看全部帖子（含被封禁用户的帖子）。删除操作不可撤销。'
+                  : tab === '文章管理'
+                    ? '可置顶多篇文章并用上移 / 下移调整顺序，置顶文章会排在文章墙最前面。'
+                    : '从已注册成员中选择。可按昵称或完整钱包地址查找；管理员账号不可在此封禁。'}
           </p>
         </div>
         {tab === '校友墙管理' && (
@@ -163,23 +239,36 @@ export default function AdminPage() {
             查看公开校友墙 <Icon name="upRight" size={14} />
           </Link>
         )}
+        {tab === '文章管理' && (
+          <Link className="btn btn-ghost btn-sm" href="/articles">
+            查看公开文章墙 <Icon name="upRight" size={14} />
+          </Link>
+        )}
       </div>
-      <form className="admin-search" onSubmit={submitSearch}>
-        <label className="search-field">
-          <Icon name="search" size={17} />
-          <input
-            maxLength={100}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="搜索管理内容"
-            placeholder={tab === '帖子管理' ? '搜索正文、昵称或钱包地址' : '搜索昵称或钱包地址'}
-          />
-        </label>
-        <button type="submit" className="btn btn-primary btn-sm">
-          搜索
-        </button>
-        <span className="muted">共 {total} 条</span>
-      </form>
+      {tab !== '管理员' && (
+        <form className="admin-search" onSubmit={submitSearch}>
+          <label className="search-field">
+            <Icon name="search" size={17} />
+            <input
+              maxLength={100}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="搜索管理内容"
+              placeholder={
+                tab === '帖子管理'
+                  ? '搜索标题、正文、昵称或钱包地址'
+                  : tab === '文章管理'
+                    ? '搜索标题、正文、昵称或钱包地址'
+                    : '搜索昵称或钱包地址'
+              }
+            />
+          </label>
+          <button type="submit" className="btn btn-primary btn-sm">
+            搜索
+          </button>
+          <span className="muted">共 {total} 条</span>
+        </form>
+      )}
       {notice && (
         <div role="status" className="success-notice">
           <Icon name="check" size={17} />
@@ -194,6 +283,11 @@ export default function AdminPage() {
           </button>
         </div>
       )}
+      {adminError && (
+        <div role="alert" className="inline-notice">
+          {adminError}
+        </div>
+      )}
       {loading ? (
         <div role="status" className="card loading-card">
           <div className="skeleton" />
@@ -201,26 +295,124 @@ export default function AdminPage() {
           <span className="visually-hidden">加载管理数据中</span>
         </div>
       ) : (
-        !error && (
+        !error &&
+        (tab === '管理员' ? (
           <div className="admin-list">
-            {tab === '帖子管理'
-              ? posts.map((post) => (
-                  <PostCard key={post.id} post={post} onDeleted={() => changed('帖子已删除')} />
-                ))
-              : users.map((item) => (
-                  <AdminUserCard
-                    key={`${item.address}-${version}`}
-                    user={item}
-                    onChanged={changed}
+            <form className="card admin-inline-form admin-add-form" onSubmit={addAdmin}>
+              <h3>添加管理员</h3>
+              <p>输入对方的钱包地址即可授权，不需对方确认。对方下次登录后立即拥有后台权限。</p>
+              <div className="admin-form-grid">
+                <label className="field">
+                  钱包地址
+                  <input
+                    className="input mono"
+                    value={newAdmin}
+                    maxLength={42}
+                    placeholder="0x…"
+                    onChange={(e) => setNewAdmin(e.target.value)}
                   />
-                ))}
-            {(tab === '帖子管理' ? posts.length === 0 : users.length === 0) && (
+                </label>
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="submit"
+                  disabled={adminBusy || !newAdmin.trim()}
+                >
+                  <Icon name="plus" size={14} />
+                  {adminBusy ? '处理中…' : '添加管理员'}
+                </button>
+              </div>
+            </form>
+
+            {admins.map((entry) => (
+              <article className="card admin-user-card" key={entry.address}>
+                <div className="admin-user-summary">
+                  <Avatar
+                    address={entry.address}
+                    nickname={entry.nickname}
+                    src={entry.avatar_url}
+                    size={44}
+                  />
+                  <div className="admin-user-identity">
+                    <Link href={`/u/${entry.address}`}>
+                      {entry.nickname.trim() || shortAddress(entry.address)}
+                    </Link>
+                    {userMetaLine(entry) && (
+                      <span className="admin-user-detail">{userMetaLine(entry)}</span>
+                    )}
+                    <span className="mono">{entry.address}</span>
+                  </div>
+                  <div className="admin-badges">
+                    {user?.address === entry.address && <span>我</span>}
+                    {entry.from_config && <span>服务器配置</span>}
+                    <span>{entry.registered ? '已注册' : '未注册'}</span>
+                  </div>
+                </div>
+                <div className="admin-user-meta">
+                  <span>
+                    {entry.added_at
+                      ? `${new Date(entry.added_at).toLocaleDateString('zh-CN')} 添加`
+                      : '来自服务器环境变量'}
+                  </span>
+                  {!entry.registered && <span>对方还没有用钱包登录过</span>}
+                </div>
+                <div className="admin-user-actions">
+                  <button
+                    className="btn btn-danger btn-sm"
+                    disabled={
+                      adminBusy || entry.from_config || user?.address === entry.address
+                    }
+                    onClick={() => void revokeAdmin(entry.address)}
+                  >
+                    <Icon name="trash" size={14} />
+                    移除权限
+                  </button>
+                  {entry.from_config && (
+                    <span className="muted">服务器配置的管理员需要在 .env 里调整</span>
+                  )}
+                  {!entry.from_config && user?.address === entry.address && (
+                    <span className="muted">不能移除自己的管理员权限</span>
+                  )}
+                </div>
+              </article>
+            ))}
+
+            {admins.length === 0 && (
+              <div className="card empty-state">
+                <h3>还没有管理员记录</h3>
+                <p>在上面的输入框里填入钱包地址，即可添加新的管理员。</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="admin-list">
+            {tab === '帖子管理' &&
+              posts.map((post) => (
+                <PostCard key={post.id} post={post} onDeleted={() => changed('帖子已删除')} />
+              ))}
+            {tab === '文章管理' &&
+              articleRows.map((row) => (
+                <AdminArticleRow
+                  key={`${row.article.id}-${version}`}
+                  article={row.article}
+                  position={row.position}
+                  canMoveUp={row.canMoveUp}
+                  canMoveDown={row.canMoveDown}
+                  onChanged={changed}
+                />
+              ))}
+            {(tab === '用户管理' || tab === '校友墙管理') &&
+              users.map((item) => (
+                <AdminUserCard key={`${item.address}-${version}`} user={item} onChanged={changed} />
+              ))}
+            {isEmpty && (
               <div className="card empty-state">
                 <h3>这里暂时没有记录</h3>
                 <p>
                   {tab === '校友墙管理'
                     ? '前往用户管理，选择已注册校友并添加展示信息。'
-                    : '试试其他搜索条件，或返回上一页。'}
+                    : tab === '文章管理'
+                      ? '社区里还没有文章。成员登录后即可在文章墙发布内容。'
+                      : '试试其他搜索条件，或返回上一页。'}
                 </p>
                 {tab === '校友墙管理' && (
                   <button className="btn btn-primary" onClick={() => switchTab('用户管理')}>
@@ -231,7 +423,7 @@ export default function AdminPage() {
             )}
           </div>
         )
-      )}
+      ))}
       <div className="pagination">
         <button
           className="btn btn-ghost btn-sm"

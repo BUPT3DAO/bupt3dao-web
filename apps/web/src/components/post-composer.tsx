@@ -4,24 +4,34 @@ import { useRef, useState, type FormEvent } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
+import { InsertImageButton } from '@/components/insert-image-button';
+import { Markdown } from '@/components/markdown';
 import { useWallet } from '@/components/wallet-provider';
 import { ApiError, api } from '@/lib/api';
 import type { Post } from '@/types';
 
-const MAX_LENGTH = 2000;
+const TITLE_MAX = 140;
+const CONTENT_MAX = 2000;
+const TOPICS = ['技术交流', '项目共建', '校园日常'];
 
 export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
   const { status, user, connect } = useWallet();
+  const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [preview, setPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  function addTopic(topic: string) {
-    setContent((current) =>
-      `${current}${current && !current.endsWith(' ') ? ' ' : ''}#${topic} `.slice(0, MAX_LENGTH),
-    );
-    inputRef.current?.focus();
+  function insertImage(markdown: string) {
+    const next = `${content}${content && !content.endsWith('\n') ? '\n' : ''}${markdown}`;
+    if (next.length > CONTENT_MAX) {
+      setError('正文太长，放不下这张图片的引用，先精简一下再试。');
+      return;
+    }
+    setContent(next);
+    requestAnimationFrame(() => contentRef.current?.focus());
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -30,14 +40,18 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
       void connect();
       return;
     }
-    const trimmed = content.trim();
-    if (!trimmed || submitting) return;
+    const cleanTitle = title.trim();
+    const cleanContent = content.trim();
+    if (!cleanTitle || !cleanContent || submitting) return;
 
     setSubmitting(true);
     setError(null);
     try {
-      const post = await api.createPost(trimmed);
+      const post = await api.createPost({ title: cleanTitle, topic, content: cleanContent });
+      setTitle('');
+      setTopic('');
       setContent('');
+      setPreview(false);
       onPosted(post);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '发布失败，请稍后重试');
@@ -47,7 +61,7 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
   }
 
   return (
-    <section className="card composer" id="composer" aria-label="发布想法">
+    <section className="card composer post-composer" id="composer" aria-label="发布新帖">
       <form onSubmit={handleSubmit}>
         <div className="composer-body">
           {user ? (
@@ -63,34 +77,68 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
             </span>
           )}
           <div className="composer-input">
-            <label htmlFor="post-content">
-              {user ? '今天，有什么新想法？' : '每一个想法，都有回响。'}
-            </label>
-            <textarea
-              id="post-content"
-              ref={inputRef}
-              className="textarea"
-              value={content}
-              maxLength={MAX_LENGTH}
-              placeholder="分享你的发现、灵感，或正在构建的项目…"
-              onChange={(event) => setContent(event.target.value)}
+            <label htmlFor="post-title">{user ? '开个新帖，聊聊你的想法' : '登录后即可发帖'}</label>
+            <input
+              id="post-title"
+              className="input composer-title"
+              value={title}
+              maxLength={TITLE_MAX}
+              placeholder="标题：一句话说清楚你想聊什么"
+              onChange={(event) => setTitle(event.target.value)}
               disabled={submitting}
             />
           </div>
         </div>
-        <div className="composer-actions">
-          <div className="composer-topics" aria-label="添加话题">
-            {['技术交流', '项目共建', '校园日常'].map((name) => (
-              <button type="button" key={name} onClick={() => addTopic(name)} disabled={submitting}>
-                <span>#</span> {name}
-              </button>
-            ))}
+
+        <div className="composer-sections" role="group" aria-label="选择板块">
+          {TOPICS.map((name) => (
+            <button
+              type="button"
+              key={name}
+              className={topic === name ? 'active' : ''}
+              aria-pressed={topic === name}
+              onClick={() => setTopic(topic === name ? '' : name)}
+              disabled={submitting}
+            >
+              <Icon name="hash" size={12} />
+              {name}
+            </button>
+          ))}
+        </div>
+
+        {preview ? (
+          <div className="composer-preview">
+            <Markdown source={content} />
           </div>
-          {content.length > 0 && (
-            <span className="character-count">
-              {content.length}/{MAX_LENGTH}
-            </span>
-          )}
+        ) : (
+          <textarea
+            id="post-content"
+            ref={contentRef}
+            className="textarea composer-content"
+            value={content}
+            maxLength={CONTENT_MAX}
+            placeholder={
+              '正文支持 Markdown：**加粗**、- 列表、> 引用、`代码`、[链接](https://example.com)，也可以直接插入图片。'
+            }
+            onChange={(event) => setContent(event.target.value)}
+            disabled={submitting}
+          />
+        )}
+
+        <div className="composer-toolbar">
+          <InsertImageButton onInserted={insertImage} onError={setError} disabled={submitting} />
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={submitting || !content.trim()}
+            onClick={() => setPreview((current) => !current)}
+          >
+            <Icon name={preview ? 'edit' : 'book'} size={15} />
+            {preview ? '继续编辑' : '预览'}
+          </button>
+          <span className="character-count">
+            {content.length}/{CONTENT_MAX}
+          </span>
           <button
             className="btn btn-primary"
             type="submit"
@@ -98,7 +146,7 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
               submitting ||
               status === 'loading' ||
               status === 'connecting' ||
-              (status === 'authenticated' && !content.trim())
+              (status === 'authenticated' && (!title.trim() || !content.trim()))
             }
           >
             {submitting
@@ -106,9 +154,9 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
               : status === 'connecting'
                 ? '等待签名…'
                 : user
-                  ? '发布想法'
+                  ? '发布帖子'
                   : '连接钱包发帖'}
-            <Icon name={user ? 'arrow' : 'wallet'} size={16} />
+            <Icon name={user ? 'send' : 'wallet'} size={16} />
           </button>
         </div>
         {error && (

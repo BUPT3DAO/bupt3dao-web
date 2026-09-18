@@ -11,6 +11,20 @@ import { ThemeSwitch } from '@/components/theme-provider';
 import { useWallet } from '@/components/wallet-provider';
 import { displayName } from '@/lib/format';
 
+function pageName(pathname: string): string {
+  if (pathname === '/') return '首页';
+  if (pathname === '/forum') return '社区论坛';
+  if (pathname === '/members') return '校友墙';
+  if (pathname === '/articles') return '文章墙';
+  if (pathname === '/articles/new') return '写文章';
+  if (/^\/articles\/\d+\/edit$/.test(pathname)) return '编辑文章';
+  if (/^\/articles\/\d+$/.test(pathname)) return '文章';
+  if (pathname === '/admin') return '管理后台';
+  if (pathname === '/guide') return '社区指南';
+  if (pathname === '/settings') return '编辑资料';
+  return '个人主页';
+}
+
 export function Header() {
   const { status, user, hasProvider, error, connect, logout } = useWallet();
   const pathname = usePathname();
@@ -92,21 +106,7 @@ export function Header() {
           </Link>
           <span className="header-label">COMMUNITY</span>
           <span className="header-divider">/</span>
-          <span className="header-page-name">
-            {pathname === '/'
-              ? '首页'
-              : pathname === '/forum'
-                ? '社区论坛'
-                : pathname === '/members'
-                  ? '校友墙'
-                  : pathname === '/admin'
-                    ? '管理后台'
-                    : pathname === '/guide'
-                      ? '社区指南'
-                      : pathname === '/settings'
-                        ? '编辑资料'
-                        : '个人主页'}
-          </span>
+          <span className="header-page-name">{pageName(pathname)}</span>
         </div>
         <div className="wallet-area">
           <ThemeSwitch />
@@ -190,6 +190,14 @@ export function Header() {
           >
             <Icon name="spark" />
             校友墙
+          </Link>
+          <Link
+            className={pathname.startsWith('/articles') ? 'active' : ''}
+            href="/articles"
+            aria-current={pathname.startsWith('/articles') ? 'page' : undefined}
+          >
+            <Icon name="book" />
+            文章墙
           </Link>
           {user ? (
             <Link

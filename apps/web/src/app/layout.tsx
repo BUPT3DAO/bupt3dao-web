@@ -13,6 +13,7 @@ const themeScript = `(()=>{let t='system';try{let s=localStorage.getItem('bupt3d
 export const metadata: Metadata = {
   title: { default: 'BUPT3DAO · 连接想法，共建未来', template: '%s · BUPT3DAO' },
   description: '北京邮电大学 Web3 社区。分享技术、发现项目、连接同行者，一起共建开放的未来。',
+  icons: { icon: '/icon.svg', shortcut: '/icon.svg' },
   twitter: {
     card: 'summary',
     site: '@BUPT3DAO',

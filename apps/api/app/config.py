@@ -38,9 +38,10 @@ class Settings(BaseSettings):
             raise ValueError("ADMIN_ADDRESSES 必须是有效的钱包地址列表")
         return list(dict.fromkeys(address.lower() for address in values))
 
-    # 头像上传
+    # 图片上传：头像 2MB；主页背景图与 markdown 内嵌图片 4MB
     upload_dir: Path = Path("./data/uploads")
     max_avatar_bytes: int = 2 * 1024 * 1024
+    max_image_bytes: int = 4 * 1024 * 1024
 
 
 settings = Settings()

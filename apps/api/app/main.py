@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.db import Base, engine
-from app.routers import admin, auth, members, posts, users
+from app.db import engine
+from app.migrations import ensure_schema
+from app.routers import admin, articles, auth, members, posts, users
 
-# 骨架阶段用 create_all 建表；后续数据模型稳定后可换成 Alembic 迁移
-Base.metadata.create_all(bind=engine)
+# 骨架阶段用 create_all + 轻量补列建表；后续数据模型稳定后可换成 Alembic 迁移
+ensure_schema(engine)
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title=settings.app_name, version="0.2.0")
@@ -28,6 +29,7 @@ api.include_router(auth.router)
 api.include_router(posts.router)
 api.include_router(users.router)
 api.include_router(members.router)
+api.include_router(articles.router)
 api.include_router(admin.router)
 
 

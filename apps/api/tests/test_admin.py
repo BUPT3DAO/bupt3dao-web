@@ -1,12 +1,12 @@
 import pytest
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 
 from app.config import Settings, settings
-from app.db import Base
-from app.models import FeaturedMember, User
+from app.migrations import ensure_schema
+from app.models import Post, User
 
 
 @pytest.fixture
@@ -39,7 +39,9 @@ def test_admin_requires_authorization(client, auth):
 
 
 def test_admin_can_delete_others_posts(client, admin_auth, auth):
-    post = client.post("/api/posts", headers=auth, json={"content": "待管理帖子"}).json()
+    post = client.post(
+        "/api/posts", headers=auth, json={"title": "待管理帖子", "content": "正文"}
+    ).json()
     result = client.get("/api/admin/posts?q=待管理帖子", headers=admin_auth)
     assert any(p["id"] == post["id"] for p in result.json()["items"])
     assert client.delete(f"/api/posts/{post['id']}", headers=admin_auth).status_code == 204
@@ -79,7 +81,9 @@ def test_feature_update_search_remove(client, admin_auth, auth):
 
 def test_ban_invalidates_token_login_and_public_content(client, admin_auth, auth, wallet):
     address = wallet.address.lower()
-    post = client.post("/api/posts", headers=auth, json={"content": "封禁可见性验证"}).json()
+    post = client.post(
+        "/api/posts", headers=auth, json={"title": "封禁可见性验证", "content": "正文"}
+    ).json()
     client.put(f"/api/admin/members/{address}", headers=admin_auth, json={"title": "封禁测试成员"})
     response = client.patch(
         f"/api/admin/users/{address}/ban",
@@ -89,7 +93,12 @@ def test_ban_invalidates_token_login_and_public_content(client, admin_auth, auth
     assert response.status_code == 200
     assert response.json()["is_banned"] is True
     assert client.get("/api/auth/me", headers=auth).status_code == 403
-    assert client.post("/api/posts", headers=auth, json={"content": "绕过封禁"}).status_code == 403
+    assert (
+        client.post(
+            "/api/posts", headers=auth, json={"title": "绕过封禁", "content": "绕过封禁"}
+        ).status_code
+        == 403
+    )
     assert (
         client.patch("/api/users/me", headers=auth, json={"nickname": "新昵称"}).status_code == 403
     )
@@ -204,6 +213,7 @@ def test_wall_follows_profile_but_keeps_curated_introduction(client, admin_auth,
 
 
 def test_existing_database_remains_compatible(tmp_path):
+    """老库启动时会补上新增列并回填，已有数据保持不动，重复启动也安全。"""
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
     with engine.begin() as connection:
         connection.execute(
@@ -217,20 +227,121 @@ def test_existing_database_remains_compatible(tmp_path):
         )
         connection.execute(
             text("""
+            CREATE TABLE posts (
+                id INTEGER PRIMARY KEY, content TEXT NOT NULL,
+                author_id INTEGER NOT NULL, created_at DATETIME NOT NULL
+            )
+        """)
+        )
+        connection.execute(
+            text("""
+            CREATE TABLE profile_details (
+                user_id INTEGER PRIMARY KEY, cohort VARCHAR(2) NOT NULL,
+                school VARCHAR(80) NOT NULL, major VARCHAR(80) NOT NULL, links JSON NOT NULL
+            )
+        """)
+        )
+        connection.execute(
+            text("""
             INSERT INTO users VALUES
             (1, '0x1111111111111111111111111111111111111111', '原有成员', '', NULL,
              '2026-01-01 00:00:00', '2026-01-01 00:00:00')
         """)
         )
-    original_columns = [str(column) for column in inspect(engine).get_columns("users")]
-    Base.metadata.create_all(engine)
-    Base.metadata.create_all(engine)
-    assert [str(column) for column in inspect(engine).get_columns("users")] == original_columns
+        connection.execute(
+            text("""
+            INSERT INTO posts VALUES (1, '老帖子的正文', 1, '2026-01-02 00:00:00')
+        """)
+        )
+        connection.execute(
+            text("""
+            INSERT INTO profile_details VALUES
+            (1, '23', '计算机学院', '计算机科学与技术', '[]')
+        """)
+        )
+
+    ensure_schema(engine)
+    ensure_schema(engine)
+
     with Session(engine) as db:
         user = db.scalar(select(User))
         assert user.nickname == "原有成员"
+        assert user.banner_url is None
         assert not user.is_banned
-        user.featured = FeaturedMember(title="原有校友", cohort="", introduction="", sort_order=0)
-        db.commit()
-        assert user.featured.title == "原有校友"
+        # 两位届别被补成入学年份
+        assert user.cohort == "2023"
+        assert user.university == ""
+
+        post = db.scalar(select(Post))
+        assert post.content == "老帖子的正文"
+        assert post.title == "老帖子的正文"
+        assert post.topic == ""
     engine.dispose()
+
+
+def test_admin_can_add_and_remove_admins(client, admin_auth, sign_in):
+    newcomer = Account.create()
+    payload = {"address": newcomer.address}
+
+    created = client.post("/api/admin/admins", headers=admin_auth, json=payload)
+    assert created.status_code == 201, created.text
+    assert created.json()["address"] == newcomer.address.lower()
+    assert created.json()["registered"] is False
+    assert created.json()["from_config"] is False
+
+    # 新管理员用钱包登录后立刻拥有权限，不需要任何审批
+    newcomer_headers = sign_in(newcomer)
+    assert client.get("/api/admin/users", headers=newcomer_headers).status_code == 200
+
+    listed = client.get("/api/admin/admins", headers=admin_auth).json()
+    entry = next(item for item in listed["items"] if item["address"] == newcomer.address.lower())
+    assert entry["registered"] is True
+    assert entry["from_config"] is False
+
+    assert client.post("/api/admin/admins", headers=admin_auth, json=payload).status_code == 409
+    assert (
+        client.post("/api/admin/admins", headers=admin_auth, json={"address": "0x123"}).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/admin/admins", headers=admin_auth, json={"address": Account.create().address}
+        ).status_code
+        == 201
+    )
+
+    # 新管理员不能移除自己，但其他管理员可以移除他
+    assert (
+        client.delete(f"/api/admin/admins/{newcomer.address}", headers=newcomer_headers).status_code
+        == 409
+    )
+    assert (
+        client.delete(f"/api/admin/admins/{newcomer.address}", headers=admin_auth).status_code
+        == 204
+    )
+    assert client.get("/api/admin/users", headers=newcomer_headers).status_code == 403
+    assert (
+        client.delete(f"/api/admin/admins/{newcomer.address}", headers=admin_auth).status_code
+        == 404
+    )
+
+
+def test_admin_management_guards(client, admin_auth, auth):
+    config_admin = next(
+        item
+        for item in client.get("/api/admin/admins", headers=admin_auth).json()["items"]
+        if item["from_config"]
+    )
+
+    assert client.get("/api/admin/admins", headers=auth).status_code == 403
+    assert client.get("/api/admin/admins").status_code == 401
+    assert (
+        client.post("/api/admin/admins", headers=auth, json={"address": "0x1"}).status_code == 403
+    )
+    # 服务器配置里的管理员不能在后台移除
+    assert (
+        client.delete(
+            f"/api/admin/admins/{config_admin['address']}", headers=admin_auth
+        ).status_code
+        == 409
+    )

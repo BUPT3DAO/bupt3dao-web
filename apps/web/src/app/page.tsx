@@ -61,6 +61,17 @@ export default function HomePage() {
             走进校友墙 <Icon name="arrow" size={16} />
           </span>
         </Link>
+        <Link href="/articles" className="home-destination">
+          <span className="destination-index">03 / WRITE</span>
+          <div>
+            <h2>把想法写成可以传阅的文字。</h2>
+            <Icon name="book" size={24} />
+          </div>
+          <p>文章墙收录社区成员的 Markdown 长文，从技术笔记到项目复盘。</p>
+          <span className="text-link">
+            阅读文章墙 <Icon name="arrow" size={16} />
+          </span>
+        </Link>
       </div>
       <footer className="home-footer">
         <span>保持好奇，持续共建。</span>

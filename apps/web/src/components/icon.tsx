@@ -27,6 +27,15 @@ const paths = {
   clock: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M12 7v5l3 2',
   logout: 'M9 3H3v18h6 M9 12h12 M16 7l5 5-5 5',
   hash: 'M5 8h16 M3 16h16 M10 3 6 21 M18 3l-4 18',
+  pin: 'M12 17v5 M9 3h6l-1 6 4 4H6l4-4-1-6z',
+  trash: 'M4 7h16 M9 7V4h6v3 M6 7l1 14h10l1-14 M10 11v6 M14 11v6',
+  plus: 'M12 5v14 M5 12h14',
+  up: 'M12 19V5 M6 11l6-6 6 6',
+  down: 'M12 5v14 M6 13l6 6 6-6',
+  cap: 'm2 9 10-5 10 5-10 5L2 9z M6 11.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5',
+  image: 'M3 4h18v16H3z M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3 M3 17l5-5 3.5 3.5L15 12l6 6',
+  reply: 'M9 15l-4-4 4-4 M5 11h9a5 5 0 0 1 5 5v3',
+  send: 'M21 3 10 14 M21 3l-7 18-4-7-7-4 18-7z',
 } as const;
 
 export type IconName = keyof typeof paths;

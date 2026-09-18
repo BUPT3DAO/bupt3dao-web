@@ -1,11 +1,19 @@
 import type {
+  AdminEntry,
   AdminUser,
+  Article,
+  ArticlePayload,
+  ArticleSummary,
   Challenge,
+  Comment,
   Member,
   MemberDetails,
+  MoveDirection,
   PageResult,
   Post,
-  PostList,
+  PostPayload,
+  PostSummary,
+  ProfilePayload,
   TokenResponse,
   UserProfile,
   UserPublic,
@@ -76,7 +84,20 @@ export const api = {
     ),
 
   adminPosts: (q = '', offset = 0) =>
-    request<PostList>(`/admin/posts?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`),
+    request<PageResult<PostSummary>>(
+      `/admin/posts?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+    ),
+
+  listAdmins: () => request<PageResult<AdminEntry>>('/admin/admins'),
+
+  addAdmin: (address: string) =>
+    request<AdminEntry>('/admin/admins', {
+      method: 'POST',
+      body: JSON.stringify({ address }),
+    }),
+
+  removeAdmin: (address: string) =>
+    request<void>(`/admin/admins/${address}`, { method: 'DELETE' }),
 
   banUser: (address: string, isBanned: boolean, reason = '') =>
     request<AdminUser>(`/admin/users/${address}/ban`, {
@@ -104,25 +125,89 @@ export const api = {
 
   me: () => request<UserPublic>('/auth/me'),
 
-  listPosts: (offset = 0, limit = 20) =>
-    request<PostList>(`/posts?offset=${offset}&limit=${limit}`),
+  listPosts: (options: { q?: string; topic?: string; offset?: number; limit?: number } = {}) => {
+    const { q = '', topic = '', offset = 0, limit = 20 } = options;
+    const search = new URLSearchParams({
+      q,
+      topic,
+      offset: String(offset),
+      limit: String(limit),
+    });
+    return request<PageResult<PostSummary>>(`/posts?${search.toString()}`);
+  },
 
-  createPost: (content: string) =>
-    request<Post>('/posts', { method: 'POST', body: JSON.stringify({ content }) }),
+  getPost: (id: number) => request<Post>(`/posts/${id}`),
+
+  createPost: (payload: PostPayload) =>
+    request<Post>('/posts', { method: 'POST', body: JSON.stringify(payload) }),
 
   deletePost: (id: number) => request<void>(`/posts/${id}`, { method: 'DELETE' }),
+
+  listComments: (postId: number) => request<PageResult<Comment>>(`/posts/${postId}/comments`),
+
+  createComment: (postId: number, content: string, parentId?: number) =>
+    request<Comment>(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(parentId ? { content, parent_id: parentId } : { content }),
+    }),
+
+  deleteComment: (postId: number, commentId: number) =>
+    request<void>(`/posts/${postId}/comments/${commentId}`, { method: 'DELETE' }),
 
   getUser: (address: string) => request<UserProfile>(`/users/${address}`),
 
   listUserPosts: (address: string, offset = 0, limit = 20) =>
-    request<PostList>(`/users/${address}/posts?offset=${offset}&limit=${limit}`),
+    request<PageResult<PostSummary>>(`/users/${address}/posts?offset=${offset}&limit=${limit}`),
 
-  updateProfile: (payload: { nickname?: string; bio?: string }) =>
+  updateProfile: (payload: ProfilePayload) =>
     request<UserPublic>('/users/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  listArticles: (offset = 0, limit = 20) =>
+    request<PageResult<ArticleSummary>>(`/articles?offset=${offset}&limit=${limit}`),
+
+  getArticle: (id: number) => request<Article>(`/articles/${id}`),
+
+  createArticle: (payload: ArticlePayload) =>
+    request<Article>('/articles', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateArticle: (id: number, payload: ArticlePayload) =>
+    request<Article>(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+  deleteArticle: (id: number) => request<void>(`/articles/${id}`, { method: 'DELETE' }),
+
+  adminArticles: (q = '', offset = 0) =>
+    request<PageResult<ArticleSummary>>(
+      `/admin/articles?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+    ),
+
+  pinArticle: (id: number, isPinned: boolean) =>
+    request<ArticleSummary>(`/admin/articles/${id}/pin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_pinned: isPinned }),
+    }),
+
+  moveArticle: (id: number, direction: MoveDirection) =>
+    request<void>(`/admin/articles/${id}/move`, {
+      method: 'POST',
+      body: JSON.stringify({ direction }),
+    }),
 
   uploadAvatar: (file: File) => {
     const body = new FormData();
     body.append('file', file);
     return request<UserPublic>('/users/me/avatar', { method: 'POST', body });
+  },
+
+  uploadBanner: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<UserPublic>('/users/me/banner', { method: 'POST', body });
+  },
+
+  /** markdown 正文里插入的图片，返回可写进 ![]() 的地址 */
+  uploadImage: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<{ url: string }>('/users/me/images', { method: 'POST', body });
   },
 };
