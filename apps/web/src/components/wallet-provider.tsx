@@ -119,6 +119,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [address, logout]);
 
   const connect = useCallback(async () => {
+    if (!window.isSecureContext) {
+      setError('当前为 HTTP 预览地址。绑定域名并启用 HTTPS 后，才能安全使用钱包登录。');
+      return;
+    }
     const ethereum = window.ethereum;
     if (!ethereum) {
       setError('没有检测到 MetaMask，请先安装小狐狸钱包插件');

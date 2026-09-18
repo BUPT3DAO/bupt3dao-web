@@ -1,36 +1,105 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
+import { Icon } from '@/components/icon';
 import { useWallet } from '@/components/wallet-provider';
 import { displayName } from '@/lib/format';
 
 export function Header() {
   const { status, user, hasProvider, error, connect, logout } = useWallet();
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const busy = status === 'loading' || status === 'connecting';
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 760px)');
+    const sync = () => {
+      setIsMobile(media.matches);
+      if (!media.matches) setMenuOpen(false);
+    };
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    const background = [
+      document.getElementById('main-content'),
+      document.querySelector<HTMLElement>('.site-header'),
+    ];
+    document.body.style.overflow = 'hidden';
+    background.forEach((element) => {
+      if (element) element.inert = true;
+    });
+    sidebarRef.current?.querySelector<HTMLButtonElement>('.sidebar-close')?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+      if (event.key !== 'Tab') return;
+      const items = sidebarRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not(:disabled)',
+      );
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      background.forEach((element) => {
+        if (element) element.inert = false;
+      });
+      document.removeEventListener('keydown', handleKey);
+      previousFocus?.focus();
+    };
+  }, [menuOpen]);
 
   return (
-    <header className="site-header">
-      <div className="container header-inner">
-        <Link className="brand" href="/">
-          BUPT3DAO
-        </Link>
-
-        <nav className="nav">
-          <Link href="/">广场</Link>
-          {user && <Link href={`/u/${user.address}`}>我的主页</Link>}
-          {user && <Link href="/settings">编辑资料</Link>}
-        </nav>
-
+    <>
+      <a href="#main-content" className="skip-link">
+        跳转到内容
+      </a>
+      <header className="site-header">
+        <div className="header-context">
+          <button
+            className="icon-btn mobile-toggle"
+            aria-label={menuOpen ? '关闭导航' : '打开导航'}
+            aria-expanded={menuOpen}
+            aria-controls="community-navigation"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <Icon name={menuOpen ? 'close' : 'menu'} />
+          </button>
+          <Link href="/" className="mobile-brand" aria-label="BUPT3DAO 首页">
+            <Image src="/bupt3.svg" alt="BUPT3DAO" width={845} height={215} unoptimized />
+          </Link>
+          <span className="header-label">COMMUNITY</span>
+          <span className="header-divider">/</span>
+          <span className="header-page-name">
+            {pathname === '/' ? '社区广场' : pathname === '/settings' ? '编辑资料' : '个人主页'}
+          </span>
+        </div>
         <div className="wallet-area">
-          {status === 'loading' && <span className="muted">加载中…</span>}
-          {status === 'connecting' && <span className="muted">等待钱包确认…</span>}
-          {status === 'anonymous' && (
-            <button className="btn btn-primary" onClick={() => void connect()}>
-              连接小狐狸钱包
-            </button>
-          )}
-          {status === 'authenticated' && user && (
+          <span className="network-label">
+            <span className="status-dot" /> Web3, together.
+          </span>
+          {user ? (
             <>
               <Link className="wallet-chip" href={`/u/${user.address}`}>
                 <Avatar
@@ -41,24 +110,134 @@ export function Header() {
                 />
                 <span>{displayName(user)}</span>
               </Link>
-              <button className="btn btn-ghost btn-sm" onClick={logout}>
-                退出
+              <button className="icon-btn" aria-label="退出登录" onClick={logout}>
+                <Icon name="logout" size={18} />
               </button>
             </>
+          ) : (
+            <button className="btn btn-dark" disabled={busy} onClick={() => void connect()}>
+              <Icon name="wallet" size={17} />
+              {status === 'connecting'
+                ? '等待签名确认'
+                : status === 'loading'
+                  ? '连接中'
+                  : '连接钱包'}
+            </button>
           )}
         </div>
-      </div>
+      </header>
 
-      {status === 'anonymous' && !hasProvider && (
-        <div className="container">
-          <p className="hint">没有检测到浏览器钱包插件，请先安装 MetaMask。</p>
-        </div>
+      {menuOpen && (
+        <button className="nav-backdrop" aria-label="关闭导航" onClick={() => setMenuOpen(false)} />
       )}
+      <aside
+        ref={sidebarRef}
+        className={`sidebar ${menuOpen ? 'is-open' : ''}`}
+        id="community-navigation"
+        inert={isMobile && !menuOpen}
+        aria-label="社区导航"
+      >
+        <button
+          className="icon-btn sidebar-close"
+          aria-label="关闭导航菜单"
+          onClick={() => setMenuOpen(false)}
+        >
+          <Icon name="close" size={17} />
+        </button>
+        <Link className="brand" href="/" aria-label="BUPT3DAO 首页" onClick={() => setMenuOpen(false)}>
+          <Image src="/bupt3.svg" alt="BUPT3DAO" width={845} height={215} priority unoptimized />
+          <small>BUILD BEYOND BOUNDARIES</small>
+        </Link>
+        <div className="sidebar-caption">你的 Web3 校园</div>
+        <nav className="nav" aria-label="主导航" onClick={() => setMenuOpen(false)}>
+          <Link
+            className={pathname === '/' ? 'active' : ''}
+            href="/"
+            aria-current={pathname === '/' ? 'page' : undefined}
+          >
+            <Icon name="grid" />
+            社区广场
+            <span className="nav-dot" />
+          </Link>
+          {user ? (
+            <Link
+              className={pathname.startsWith('/u/') ? 'active' : ''}
+              href={`/u/${user.address}`}
+            >
+              <Icon name="user" />
+              我的主页
+            </Link>
+          ) : (
+            <button onClick={() => void connect()} disabled={busy}>
+              <Icon name="user" />
+              我的主页
+              <Icon name="wallet" size={14} />
+            </button>
+          )}
+          <Link
+            className={pathname === '/settings' ? 'active' : ''}
+            href="/settings"
+            aria-current={pathname === '/settings' ? 'page' : undefined}
+          >
+            <Icon name="edit" />
+            编辑资料
+          </Link>
+        </nav>
+        <div className="sidebar-section-title">
+          探索与共建 <span>↗</span>
+        </div>
+        <nav className="nav secondary-nav" aria-label="社区资源">
+          <a href="https://x.com/BUPT3DAO" target="_blank" rel="noopener noreferrer" aria-label="官方 X（Twitter）：@BUPT3DAO">
+            <Icon name="x" />
+            官方动态
+            <Icon name="upRight" size={14} />
+          </a>
+          <a href="https://github.com/BUPT3DAO" target="_blank" rel="noreferrer">
+            <Icon name="code" />
+            开源项目
+            <Icon name="upRight" size={14} />
+          </a>
+          <a href="https://ethereum.org/zh/learn/" target="_blank" rel="noreferrer">
+            <Icon name="book" />
+            Web3 学习
+            <Icon name="upRight" size={14} />
+          </a>
+          <Link href="/#community-guide" onClick={() => setMenuOpen(false)}>
+            <Icon name="globe" />
+            社区指南
+          </Link>
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="join-card">
+            <span className="mini-orbit" aria-hidden="true" />
+            <span className="eyebrow">YOUR NEXT CHAPTER</span>
+            <h3>从一个想法开始。</h3>
+            <p>
+              找到同行者，一起把想法
+              <br />
+              变成下一个可能。
+            </p>
+            <Link href="/#composer" className="text-link" onClick={() => setMenuOpen(false)}>
+              加入讨论 <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+          <div className="sidebar-footer">
+            <span className="status-dot" /> Built by BUPT, for everyone.
+          </div>
+          <span className="copyright">© {new Date().getFullYear()} BUPT3DAO</span>
+        </div>
+      </aside>
       {error && (
-        <div className="container">
-          <p className="error-text">{error}</p>
+        <div className="wallet-notice" role="alert">
+          <Icon name="wallet" />
+          <span>{error}</span>
+          {!hasProvider && (
+            <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">
+              安装 MetaMask <Icon name="upRight" size={14} />
+            </a>
+          )}
         </div>
       )}
-    </header>
+    </>
   );
 }

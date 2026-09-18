@@ -1,9 +1,8 @@
-name: Release
+name: Deploy Main
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -11,13 +10,21 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: deploy-main
   cancel-in-progress: false
 
 jobs:
+  checks:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   images:
+    needs: checks
     name: 构建并推送 ${{ matrix.app }} 镜像
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -45,10 +52,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.app }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
 
       - name: 构建并推送
         uses: docker/build-push-action@v6
@@ -60,3 +64,79 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  deploy:
+    name: 部署服务器
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 检查是否仍是 main 最新提交
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$head" == "$GITHUB_SHA" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "跳过已被更新提交取代的版本 $GITHUB_SHA"
+          fi
+
+      - name: 配置专用 SSH 密钥及固定主机公钥
+        if: steps.latest.outputs.deploy == 'true'
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST" && test -n "$DEPLOY_USER"
+          test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: 上传本次提交的部署文件
+        if: steps.latest.outputs.deploy == 'true'
+        run: |
+          set -euo pipefail
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$target" "install -d -m 700 /opt/bupt3dao/releases/$GITHUB_SHA"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            docker/docker-compose.yml docker/deploy.sh \
+            "$target:/opt/bupt3dao/releases/$GITHUB_SHA/"
+
+      - name: 拉取固定版本并健康检查，失败自动回退
+        if: steps.latest.outputs.deploy == 'true'
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 短期 GITHUB_TOKEN 通过标准输入传输，仅用于拉镜像，不落盘保存。
+          printf '%s' "$GHCR_TOKEN" | ssh \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash /opt/bupt3dao/releases/$GITHUB_SHA/deploy.sh '$GITHUB_SHA' '$GITHUB_ACTOR'"
+
+      - name: 验证公网入口
+        if: steps.latest.outputs.deploy == 'true'
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 "http://$DEPLOY_HOST/api/health"
+          curl --fail --silent --show-error --max-time 20 --output /dev/null "http://$DEPLOY_HOST/"
+
+      - name: 清理 runner 部署凭据
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
