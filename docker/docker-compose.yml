@@ -1,5 +1,66 @@
 name: bupt3dao-web
 
+# 蓝绿部署：web / api 各准备 blue、green 两份定义，同一时刻只有一色在对外服务。
+# 部署脚本先起非活跃色并等它健康，再由 Caddy 换上游（reload，不重建容器），最后停掉旧色，
+# 因此整个发布过程线上一直有可用上游。
+# 两色共用同一个 api-data 卷（SQLite 库 + 上传文件），只在切换的几秒内会同时打开该库。
+
+x-web: &web
+  image: ghcr.io/bupt3dao/bupt3dao-web/web:${TAG:-latest}
+  build:
+    # 构建上下文为仓库根目录（Next.js monorepo 需要根级 lockfile）
+    context: ..
+    dockerfile: apps/web/Dockerfile
+  environment:
+    NODE_ENV: production
+    NODE_OPTIONS: --max-old-space-size=256
+  init: true
+  mem_limit: 384m
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  restart: unless-stopped
+
+x-api: &api
+  image: ghcr.io/bupt3dao/bupt3dao-web/api:${TAG:-latest}
+  build:
+    context: ..
+    dockerfile: apps/api/Dockerfile
+  environment:
+    ENVIRONMENT: ${ENVIRONMENT:-production}
+    CORS_ORIGINS: '["${PUBLIC_WEB_ORIGIN:-http://localhost:3000}"]'
+    # 数据落在命名卷 /data 下（SQLite 库 + 上传的头像），两色共享
+    DATABASE_URL: ${DATABASE_URL:-sqlite:////data/app.db}
+    UPLOAD_DIR: /data/uploads
+    # SIWE 里展示给用户签名的域名，需与用户实际访问的站点一致
+    SIWE_DOMAIN: ${SIWE_DOMAIN:-localhost:3000}
+    SIWE_URI: ${PUBLIC_WEB_ORIGIN:-http://localhost:3000}
+    JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+    ADMIN_ADDRESSES: ${ADMIN_ADDRESSES:-[]}
+  volumes:
+    - api-data:/data
+  mem_limit: 384m
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  restart: unless-stopped
+
 services:
   gateway:
     image: caddy:2.10.2-alpine
@@ -7,12 +68,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 目录挂载：upstream.caddy 由部署脚本改写后 reload，gateway 容器本身不重建
+      - ${CADDY_DIR:-./caddy}:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on:
-      web:
-        condition: service_healthy
     mem_limit: 192m
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
@@ -27,68 +86,36 @@ services:
         max-file: "3"
     restart: unless-stopped
 
-  web:
-    image: ghcr.io/bupt3dao/bupt3dao-web/web:${TAG:-latest}
-    build:
-      # 构建上下文为仓库根目录（Next.js monorepo 需要根级 lockfile）
-      context: ..
-      dockerfile: apps/web/Dockerfile
+  api-blue:
+    <<: *api
+
+  api-green:
+    <<: *api
+
+  web-blue:
+    <<: *web
+    # 合并锚点不会深合并 environment，这里必须完整重写
     environment:
       NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=256
-      # 运行时反向代理目标：容器内用服务名访问 api，不进入构建产物
-      API_PROXY_TARGET: http://api:8000
+      API_PROXY_TARGET: http://api-blue:8000
     ports:
-      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+      - "127.0.0.1:${BLUE_PORT:-3001}:3000"
     depends_on:
-      api:
+      api-blue:
         condition: service_healthy
-    init: true
-    mem_limit: 384m
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    restart: unless-stopped
 
-  api:
-    image: ghcr.io/bupt3dao/bupt3dao-web/api:${TAG:-latest}
-    build:
-      context: ..
-      dockerfile: apps/api/Dockerfile
+  web-green:
+    <<: *web
     environment:
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      CORS_ORIGINS: '["${PUBLIC_WEB_ORIGIN:-http://localhost:3000}"]'
-      # 数据落在命名卷 /data 下（SQLite 库 + 上传的头像）
-      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/app.db}
-      UPLOAD_DIR: /data/uploads
-      # SIWE 里展示给用户签名的域名，需与用户实际访问的站点一致
-      SIWE_DOMAIN: ${SIWE_DOMAIN:-localhost:3000}
-      SIWE_URI: ${PUBLIC_WEB_ORIGIN:-http://localhost:3000}
-      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
-      ADMIN_ADDRESSES: ${ADMIN_ADDRESSES:-[]}
-    volumes:
-      - api-data:/data
-    mem_limit: 384m
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    restart: unless-stopped
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=256
+      API_PROXY_TARGET: http://api-green:8000
+    ports:
+      - "127.0.0.1:${GREEN_PORT:-3002}:3000"
+    depends_on:
+      api-green:
+        condition: service_healthy
 
 volumes:
   api-data:

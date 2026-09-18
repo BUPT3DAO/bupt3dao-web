@@ -112,10 +112,13 @@ jobs:
           set -euo pipefail
           target="$DEPLOY_USER@$DEPLOY_HOST"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$target" "install -d -m 700 /opt/bupt3dao/releases/$GITHUB_SHA"
+            "$target" "install -d -m 700 /opt/bupt3dao/releases/$GITHUB_SHA/caddy"
           scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            docker/docker-compose.yml docker/deploy.sh docker/Caddyfile \
+            docker/docker-compose.yml docker/deploy.sh \
             "$target:/opt/bupt3dao/releases/$GITHUB_SHA/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            docker/caddy/Caddyfile \
+            "$target:/opt/bupt3dao/releases/$GITHUB_SHA/caddy/"
 
       - name: 拉取固定版本并健康检查，失败自动回退
         if: steps.latest.outputs.deploy == 'true'

@@ -1,0 +1,14 @@
+# 蓝绿发布：真正指向哪一色由 upstream.caddy 决定。
+# 部署脚本只改写 upstream.caddy 然后 `caddy reload`，gateway 容器不重建、监听不断。
+bupt3dao.club {
+	encode zstd gzip
+	import /etc/caddy/upstream.caddy
+}
+
+www.bupt3dao.club {
+	redir https://bupt3dao.club{uri} permanent
+}
+
+http://154.51.61.121 {
+	redir https://bupt3dao.club{uri} permanent
+}

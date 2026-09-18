@@ -1,0 +1,3 @@
+# 运行时状态：由部署脚本改写，用于在 blue / green 之间切换上游。
+# 本地默认起 blue。
+reverse_proxy web-blue:3000
