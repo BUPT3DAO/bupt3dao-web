@@ -55,7 +55,7 @@ jobs:
             type=sha,format=long
 
       - name: 构建并推送
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
