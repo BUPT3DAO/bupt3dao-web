@@ -73,7 +73,11 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
     const canDelete = user?.address === comment.author.address || Boolean(user?.is_admin);
     const canReply = status === 'authenticated' && comment.depth < MAX_COMMENT_DEPTH;
     return (
-      <div className={`comment comment-depth-${comment.depth}`} key={comment.id}>
+      <div
+        className={`comment comment-depth-${comment.depth}`}
+        id={`comment-${comment.id}`}
+        key={comment.id}
+      >
         <div className="comment-head">
           <UserIdentity user={comment.author} size={30} placement="bottom" />
           <time className="muted" dateTime={comment.created_at}>

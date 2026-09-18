@@ -212,6 +212,31 @@ class CommentListOut(BaseModel):
     total: int
 
 
+class NotificationOut(BaseModel):
+    """站内消息：谁回复了你的帖子或评论。点击后跳转 post_id 对应的帖子。"""
+
+    id: int
+    kind: Literal["post_comment", "comment_reply"]
+    is_read: bool
+    created_at: UTCDateTime
+    post_id: int
+    post_title: str
+    comment_id: int
+    excerpt: str
+    actor: UserBrief
+
+
+class NotificationListOut(BaseModel):
+    items: list[NotificationOut]
+    total: int
+    # 未读数随列表一起返回，侧边栏角标不必再单独请求
+    unread: int
+
+
+class NotificationSummaryOut(BaseModel):
+    unread: int
+
+
 class MemberUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

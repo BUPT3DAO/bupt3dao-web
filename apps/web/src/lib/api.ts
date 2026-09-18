@@ -9,6 +9,8 @@ import type {
   Member,
   MemberDetails,
   MoveDirection,
+  NotificationFeed,
+  NotificationSummary,
   PageResult,
   Post,
   PostPayload,
@@ -43,6 +45,14 @@ export function setToken(token: string | null): void {
   } else {
     window.localStorage.removeItem(TOKEN_KEY);
   }
+}
+
+/** 消息被读掉之后立刻同步侧边栏角标，不必等下一次路由变化 */
+export const UNREAD_EVENT = 'bupt3dao:unread';
+
+export function emitUnread(unread: number): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<number>(UNREAD_EVENT, { detail: unread }));
 }
 
 async function readError(response: Response): Promise<string> {
@@ -153,6 +163,14 @@ export const api = {
 
   deleteComment: (postId: number, commentId: number) =>
     request<void>(`/posts/${postId}/comments/${commentId}`, { method: 'DELETE' }),
+
+  listNotifications: (offset = 0, limit = 20) =>
+    request<NotificationFeed>(`/notifications?offset=${offset}&limit=${limit}`),
+
+  notificationSummary: () => request<NotificationSummary>('/notifications/summary'),
+
+  readNotification: (id: number) =>
+    request<NotificationSummary>(`/notifications/${id}/read`, { method: 'POST' }),
 
   getUser: (address: string) => request<UserProfile>(`/users/${address}`),
 

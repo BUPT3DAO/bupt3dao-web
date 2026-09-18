@@ -9,11 +9,13 @@ import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { ThemeSwitch } from '@/components/theme-provider';
 import { useWallet } from '@/components/wallet-provider';
+import { UNREAD_EVENT, api } from '@/lib/api';
 import { displayName } from '@/lib/format';
 
 function pageName(pathname: string): string {
   if (pathname === '/') return '首页';
   if (pathname === '/forum') return '社区论坛';
+  if (pathname === '/notifications') return '消息提示';
   if (pathname === '/members') return '校友墙';
   if (pathname === '/articles') return '文章墙';
   if (pathname === '/articles/new') return '写文章';
@@ -30,8 +32,35 @@ export function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [unread, setUnread] = useState(0);
   const sidebarRef = useRef<HTMLElement>(null);
   const busy = status === 'loading' || status === 'connecting';
+
+  // 每次换页面顺手刷新一次未读数，读到消息后角标立刻跟上
+  useEffect(() => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
+    let cancelled = false;
+    api
+      .notificationSummary()
+      .then((data) => {
+        if (!cancelled) setUnread(data.unread);
+      })
+      // 角标取不到就安静地保持原样，不打断浏览
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, pathname]);
+
+  // 消息页读到哪条就通知一次，省得等下一次跳转才更新
+  useEffect(() => {
+    const sync = (event: Event) => setUnread((event as CustomEvent<number>).detail);
+    window.addEventListener(UNREAD_EVENT, sync);
+    return () => window.removeEventListener(UNREAD_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 760px)');
@@ -183,6 +212,19 @@ export function Header() {
             <Icon name="message" />
             社区论坛
           </Link>
+          {user && (
+            <Link
+              className={pathname === '/notifications' ? 'active' : ''}
+              href="/notifications"
+              aria-current={pathname === '/notifications' ? 'page' : undefined}
+            >
+              <Icon name="bell" />
+              消息提示
+              {unread > 0 && (
+                <span className="nav-badge">{unread > 99 ? '99+' : unread}</span>
+              )}
+            </Link>
+          )}
           <Link
             className={pathname === '/members' ? 'active' : ''}
             href="/members"

@@ -4656,6 +4656,112 @@ html[data-theme='dark'] .skeleton {
   gap: 7px;
 }
 
+/* ---------- 消息提示 ---------- */
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.7;
+  text-align: center;
+}
+.notifications-page {
+  max-width: 780px;
+  margin: 0 auto;
+}
+.notifications-unread {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 15px 18px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.notification-row:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+/* 读过的消息整条压灰，和未读一眼能分开 */
+.notification-row.is-read {
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: var(--ink-soft);
+}
+.notification-row.is-read:hover {
+  border-color: var(--line-strong);
+}
+.notification-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.notification-title {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.notification-title strong {
+  font-weight: 650;
+}
+.notification-post {
+  color: var(--accent);
+}
+.notification-row.is-read .notification-post {
+  color: inherit;
+}
+.notification-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.notification-body time {
+  font-size: 10px;
+}
+.notification-flag {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+html[data-theme='dark'] .nav-badge {
+  color: #1c132d;
+}
+
 @media (max-width: 760px) {
   .post-row {
     padding: 16px;
@@ -4714,5 +4820,12 @@ html[data-theme='dark'] .skeleton {
   }
   .user-hover-card {
     width: min(280px, calc(100vw - 44px));
+  }
+  .notification-row {
+    padding: 13px 14px;
+  }
+  /* 小屏顶部空间紧张，未读数交给侧边栏角标 */
+  .notifications-unread {
+    display: none;
   }
 }

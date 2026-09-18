@@ -203,3 +203,32 @@ class Article(Base):
     )
 
     author: Mapped[User] = relationship(back_populates="articles")
+
+
+class Notification(Base):
+    """有人回复了你的帖子或评论时留下的站内消息。
+
+    user_id 是收件人，actor_id 是触发消息的人。SQLite 默认不打开外键级联，
+    因此帖子和评论被删除时，由路由显式清理对应的消息行。
+    """
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), index=True)
+    comment_id: Mapped[int] = mapped_column(
+        ForeignKey("comments.id", ondelete="CASCADE"), index=True
+    )
+    # post_comment：评论了你的帖子；comment_reply：回复了你的评论
+    kind: Mapped[str] = mapped_column(String(20))
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+
+    # 指向 users 的外键有两个，必须显式指明用哪一个
+    actor: Mapped[User] = relationship(foreign_keys=[actor_id])
+    post: Mapped[Post] = relationship()
+    comment: Mapped[Comment] = relationship()

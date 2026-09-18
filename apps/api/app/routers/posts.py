@@ -1,11 +1,11 @@
 """帖子：贴吧式列表、主题帖详情与三级评论。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
-from app.models import MAX_COMMENT_DEPTH, Comment, Post, User, UserModeration
+from app.models import MAX_COMMENT_DEPTH, Comment, Notification, Post, User, UserModeration
 from app.routers.articles import excerpt_of
 from app.schemas import (
     CommentCreate,
@@ -163,6 +163,8 @@ def delete_post(
     if post.author_id != user.id and not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的帖子")
 
+    # SQLite 默认不打开外键级联，帖子没了，挂在它上面的消息也要显式清掉
+    db.execute(delete(Notification).where(Notification.post_id == post_id))
     db.delete(post)
     db.commit()
 
@@ -186,7 +188,7 @@ def create_comment(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CommentOut:
-    find_post(db, post_id)
+    post = find_post(db, post_id)
 
     parent = None
     if payload.parent_id is not None:
@@ -206,6 +208,21 @@ def create_comment(
         content=payload.content,
     )
     db.add(comment)
+    db.flush()  # 先拿到 comment.id，消息行和评论落在同一个事务里
+
+    # 一级评论提醒帖子作者，回复提醒被回复的人；自己回复自己不产生消息
+    recipient_id = post.author_id if parent is None else parent.author_id
+    if recipient_id != user.id:
+        db.add(
+            Notification(
+                user_id=recipient_id,
+                actor_id=user.id,
+                post_id=post_id,
+                comment_id=comment.id,
+                kind="post_comment" if parent is None else "comment_reply",
+            )
+        )
+
     db.commit()
     return CommentOut(
         id=comment.id,
@@ -229,6 +246,15 @@ def delete_comment(
     if comment.author_id != user.id and not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的评论")
 
-    # 删掉一级评论时，其下的回复由级联一起删除
+    # 删掉一级评论时，其下的回复由级联一起删除；消息同样要按整棵子树清理，
+    # 否则留下的消息会指向已经不存在的评论，取摘要时直接报错
+    doomed = {comment.id}
+    frontier = [comment]
+    while frontier:
+        for reply in frontier.pop().replies:
+            doomed.add(reply.id)
+            frontier.append(reply)
+    db.execute(delete(Notification).where(Notification.comment_id.in_(doomed)))
+
     db.delete(comment)
     db.commit()

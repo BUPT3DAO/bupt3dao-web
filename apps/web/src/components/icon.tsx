@@ -36,6 +36,7 @@ const paths = {
   image: 'M3 4h18v16H3z M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3 M3 17l5-5 3.5 3.5L15 12l6 6',
   reply: 'M9 15l-4-4 4-4 M5 11h9a5 5 0 0 1 5 5v3',
   send: 'M21 3 10 14 M21 3l-7 18-4-7-7-4 18-7z',
+  bell: 'M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6 M10.3 20a2 2 0 0 0 3.4 0',
 } as const;
 
 export type IconName = keyof typeof paths;

@@ -111,6 +111,29 @@ export interface Challenge {
   message: string;
 }
 
+/** 站内消息：谁回复了你的帖子或评论，点击后跳转到对应帖子 */
+export interface NotificationItem {
+  id: number;
+  kind: 'post_comment' | 'comment_reply';
+  is_read: boolean;
+  created_at: string;
+  post_id: number;
+  post_title: string;
+  comment_id: number;
+  /** 回复内容的纯文本摘要 */
+  excerpt: string;
+  actor: UserBrief;
+}
+
+export interface NotificationFeed extends PageResult<NotificationItem> {
+  /** 未读数随列表一起返回，侧边栏角标不必再单独请求 */
+  unread: number;
+}
+
+export interface NotificationSummary {
+  unread: number;
+}
+
 export interface MemberDetails {
   title: string;
   cohort: string;
