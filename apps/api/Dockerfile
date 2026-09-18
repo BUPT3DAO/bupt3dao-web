@@ -16,6 +16,9 @@ RUN pip install --prefix=/install -r requirements.txt
 # ---------- 运行 ----------
 FROM base AS runner
 RUN useradd --system --create-home --uid 1001 appuser
+# 数据目录（SQLite 库 + 上传的头像）。先建好并 chown，
+# 这样首次挂载空命名卷时 Docker 会把该属主复制进卷，appuser 才有写权限。
+RUN mkdir -p /data && chown appuser:appuser /data
 COPY --from=builder /install /usr/local
 COPY --chown=appuser:appuser apps/api/app ./app
 

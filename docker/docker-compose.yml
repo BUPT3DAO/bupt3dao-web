@@ -9,6 +9,8 @@ services:
       dockerfile: apps/web/Dockerfile
     environment:
       NODE_ENV: production
+      # 运行时反向代理目标：容器内用服务名访问 api，不进入构建产物
+      API_PROXY_TARGET: http://api:8000
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
@@ -23,6 +25,18 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       CORS_ORIGINS: '["${PUBLIC_WEB_ORIGIN:-http://localhost:3000}"]'
+      # 数据落在命名卷 /data 下（SQLite 库 + 上传的头像）
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/app.db}
+      UPLOAD_DIR: /data/uploads
+      # SIWE 里展示给用户签名的域名，需与用户实际访问的站点一致
+      SIWE_DOMAIN: ${SIWE_DOMAIN:-localhost:3000}
+      SIWE_URI: ${PUBLIC_WEB_ORIGIN:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+    volumes:
+      - api-data:/data
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
+
+volumes:
+  api-data:

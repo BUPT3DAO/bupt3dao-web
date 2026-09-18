@@ -1,6 +1,6 @@
 [project]
 name = "bupt3dao-api"
-version = "0.1.0"
+version = "0.2.0"
 description = "BUPT3DAO 官网后端 API"
 requires-python = ">=3.12"
 
@@ -10,6 +10,24 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    # datetime.UTC 需要 Python 3.11+，本地开发环境仍是 3.10，统一继续用 timezone.utc
+    "UP017",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI 的依赖声明就是写在参数默认值里的，不属于可变默认值问题
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

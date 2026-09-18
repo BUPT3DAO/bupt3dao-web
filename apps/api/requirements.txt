@@ -3,3 +3,16 @@
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.32,<1.0
 pydantic-settings>=2.6,<3.0
+
+# 数据库
+sqlalchemy>=2.0,<3.0
+
+# 钱包登录（EIP-4361 消息构造 + 签名恢复）
+eth-account>=0.11,<1.0
+eth-utils>=4.0,<6.0
+
+# 登录态签发
+pyjwt>=2.9,<3.0
+
+# 头像上传（FastAPI 表单解析）
+python-multipart>=0.0.12,<1.0
