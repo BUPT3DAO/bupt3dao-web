@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # 构建上下文为仓库根目录：docker build -f apps/web/Dockerfile .
 
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -24,7 +24,7 @@ COPY apps/web ./apps/web
 RUN pnpm --filter web build
 
 # ---------- 运行 ----------
-FROM node:22-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
