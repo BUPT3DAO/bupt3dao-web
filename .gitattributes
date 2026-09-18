@@ -1,0 +1,11 @@
+# 统一换行符，避免 Windows / Linux 协作产生噪音 diff
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

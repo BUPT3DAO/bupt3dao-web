@@ -1,0 +1,22 @@
+{
+  "name": "bupt3dao-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BUPT3DAO 区块链协会官网 monorepo",
+  "packageManager": "pnpm@10.29.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "build:web": "pnpm --filter web build",
+    "lint:web": "pnpm --filter web lint",
+    "typecheck:web": "pnpm --filter web typecheck",
+    "dev:api": "python -m uvicorn app.main:app --reload --app-dir apps/api --port 8000",
+    "lint:api": "python -m ruff check apps/api",
+    "format:api": "python -m ruff format apps/api",
+    "test:api": "python -m pytest apps/api",
+    "docker:up": "docker compose -f docker/docker-compose.yml up --build",
+    "docker:down": "docker compose -f docker/docker-compose.yml down"
+  }
+}

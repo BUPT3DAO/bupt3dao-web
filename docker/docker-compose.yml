@@ -1,0 +1,28 @@
+name: bupt3dao-web
+
+services:
+  web:
+    image: ghcr.io/bupt3dao/bupt3dao-web/web:${TAG:-latest}
+    build:
+      # 构建上下文为仓库根目录（Next.js monorepo 需要根级 lockfile）
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/bupt3dao/bupt3dao-web/api:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: '["${PUBLIC_WEB_ORIGIN:-http://localhost:3000}"]'
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped

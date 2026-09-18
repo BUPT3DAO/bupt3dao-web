@@ -1,0 +1,7 @@
+# -*- coding: utf-8 -*-
+-r requirements.txt
+
+# 开发 / CI 依赖
+pytest>=8.3,<9.0
+httpx>=0.28,<1.0
+ruff>=0.8,<1.0
