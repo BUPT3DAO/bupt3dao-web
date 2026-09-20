@@ -6,6 +6,7 @@ import { Icon } from '@/components/icon';
 import { AdminArticleRow } from '@/components/admin-article-row';
 import { AdminUserCard } from '@/components/admin-user-card';
 import { Avatar } from '@/components/avatar';
+import { Markdown } from '@/components/markdown';
 import { PostCard } from '@/components/post-card';
 import { useWallet } from '@/components/wallet-provider';
 import { api } from '@/lib/api';
@@ -24,6 +25,9 @@ const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'spark' | 'image' | 's
   管理员: 'shield',
 };
 
+/** 与后端 ANNOUNCEMENT_MAX_LENGTH 保持一致 */
+const ANNOUNCEMENT_MAX = 5000;
+
 export default function AdminPage() {
   const { user, status, connect } = useWallet();
   const [tab, setTab] = useState<Tab>('用户管理');
@@ -33,6 +37,8 @@ export default function AdminPage() {
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [qrcodeUrl, setQrcodeUrl] = useState<string | null>(null);
   const [qrcodeBusy, setQrcodeBusy] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const [announcementBusy, setAnnouncementBusy] = useState(false);
   const [newAdmin, setNewAdmin] = useState('');
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminError, setAdminError] = useState('');
@@ -54,7 +60,10 @@ export default function AdminPage() {
       try {
         if (tab === '站点设置') {
           const data = await api.siteConfig();
-          if (!cancelled) setQrcodeUrl(data.group_qrcode_url);
+          if (!cancelled) {
+            setQrcodeUrl(data.group_qrcode_url);
+            setAnnouncement(data.announcement);
+          }
         } else if (tab === '管理员') {
           const data = await api.listAdmins();
           if (!cancelled) setAdmins(data.items);
@@ -166,6 +175,20 @@ export default function AdminPage() {
     }
   }
 
+  async function saveAnnouncement() {
+    setAnnouncementBusy(true);
+    setAdminError('');
+    try {
+      const config = await api.updateAnnouncement(announcement);
+      setAnnouncement(config.announcement);
+      changed(config.announcement ? '首页公告已更新' : '首页公告已撤下');
+    } catch (cause) {
+      setAdminError(cause instanceof Error ? cause.message : '保存失败，请稍后重试');
+    } finally {
+      setAnnouncementBusy(false);
+    }
+  }
+
   if (!user?.is_admin)
     return (
       <div className="admin-page">
@@ -261,7 +284,7 @@ export default function AdminPage() {
             {tab === '管理员'
               ? '管理员可以添加新的管理员，无需审批；对方的权限在其钱包登录后立即生效。服务器环境变量里的管理员不在这里移除。'
               : tab === '站点设置'
-                ? '维护首页首屏的社区群二维码卡片。替换后首页立刻展示新图；移除后卡片整块消失。'
+                ? '维护首页首屏的公告与社区群二维码。公告显示在最上方、支持 Markdown；二维码卡片在右侧。改动保存后首页立刻生效。'
                 : tab === '校友墙管理'
                 ? '只列出已上墙成员。在「用户管理」中搜索并添加新校友；被封禁成员不会公开展示。'
                 : tab === '帖子管理'
@@ -422,6 +445,46 @@ export default function AdminPage() {
           </div>
         ) : tab === '站点设置' ? (
           <div className="admin-list">
+            <section className="card site-announcement-editor">
+              <div className="site-announcement-head">
+                <div>
+                  <h3>首页公告</h3>
+                  <p>
+                    显示在首页首屏最上方，支持 Markdown：标题、列表、链接、加粗都能渲染。清空内容后保存即撤下公告。
+                  </p>
+                </div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  disabled={announcementBusy}
+                  onClick={() => void saveAnnouncement()}
+                >
+                  <Icon name="check" size={14} />
+                  {announcementBusy ? '保存中…' : '保存公告'}
+                </button>
+              </div>
+              <div className="site-announcement-grid">
+                <textarea
+                  className="textarea"
+                  maxLength={ANNOUNCEMENT_MAX}
+                  value={announcement}
+                  onChange={(event) => setAnnouncement(event.target.value)}
+                  aria-label="首页公告，支持 Markdown"
+                  placeholder={'例如：\n\n## 新学期招新\n\n- 时间：每周三 19:00\n- 地点：教三 401\n\n报名请联系 [@BUPT3DAO](https://x.com/BUPT3DAO)'}
+                />
+                <div className="site-announcement-preview">
+                  <span className="eyebrow">MARKDOWN PREVIEW</span>
+                  {announcement.trim() ? (
+                    <Markdown source={announcement} />
+                  ) : (
+                    <p className="muted">左侧输入内容后，这里实时预览首页的显示效果。</p>
+                  )}
+                </div>
+              </div>
+              <p className="hint">
+                当前 {announcement.length} / {ANNOUNCEMENT_MAX} 字
+              </p>
+            </section>
+
             <section className="card site-qrcode-editor">
               <div className="site-qrcode-text">
                 <h3>首页社区群二维码</h3>

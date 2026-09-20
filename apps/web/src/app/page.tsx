@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HomeAnnouncement } from '@/components/home-announcement';
 import { HomeGroupQrcode } from '@/components/home-group-qrcode';
 import { Icon } from '@/components/icon';
 
@@ -6,6 +7,7 @@ export default function HomePage() {
   return (
     <div className="home-page">
       <section className="home-intro">
+        <HomeAnnouncement />
         <div className="home-intro-main">
           <span className="eyebrow">BEIJING UNIVERSITY OF POSTS AND TELECOMMUNICATIONS</span>
           <span className="home-community-label">

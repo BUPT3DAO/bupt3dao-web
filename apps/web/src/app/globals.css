@@ -2598,6 +2598,10 @@ html[data-theme='dark'] {
   align-items: center;
   gap: 56px;
 }
+/* 公告条自带下边距，横向 gap 之外不要再叠一层的行间距 */
+.home-intro:has(.home-announcement) {
+  row-gap: 0;
+}
 .home-intro-main {
   min-width: 0;
 }
@@ -2818,6 +2822,51 @@ html[data-theme='dark'] {
   font-size: 11px;
   line-height: 1.8;
   color: var(--ink-soft);
+}
+/* 首屏顶部的公告条：内容由管理员在后台维护，支持 Markdown，未配置时整块不渲染 */
+.home-announcement {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  /* 首屏是两栏 grid 时公告独占第一行，文案与二维码卡片顺延到第二行 */
+  grid-column: 1 / -1;
+  margin-bottom: 46px;
+  padding: 20px 26px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  background: linear-gradient(100deg, var(--accent-soft), var(--panel) 58%);
+  box-shadow: 15px 25px 60px #67509414;
+}
+.home-announcement-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+.home-announcement .home-announcement-body {
+  flex: 1;
+  min-width: 0;
+  /* 公告比正文更值得被读到，字号与颜色都比 .markdown 默认值再重一点 */
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--text);
+}
+.home-announcement .home-announcement-body h1,
+.home-announcement .home-announcement-body h2 {
+  font-size: 20px;
+  letter-spacing: -0.3px;
+  margin: 18px 0 9px;
 }
 .forum-layout {
   display: grid;
@@ -3288,6 +3337,58 @@ html[data-theme='dark'] {
   border-radius: 9px;
   background: #fff;
 }
+/* 管理后台「站点设置」：首页公告的编辑与 Markdown 预览 */
+.site-announcement-editor {
+  padding: 22px 25px;
+}
+.site-announcement-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+.site-announcement-head h3 {
+  font-size: 13px;
+  margin-bottom: 9px;
+}
+.site-announcement-head p {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.8;
+  max-width: 520px;
+}
+.site-announcement-head .btn {
+  flex-shrink: 0;
+}
+.site-announcement-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+}
+.site-announcement-grid .textarea {
+  min-height: 258px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.site-announcement-preview {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.site-announcement-preview .eyebrow {
+  margin-bottom: 11px;
+}
+.site-announcement-preview .muted {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.site-announcement-editor .hint {
+  margin-top: 11px;
+  font-size: 10px;
+}
 
 /* Keep the established profile/editor components legible on dark surfaces. */
 html[data-theme='dark']
@@ -3744,6 +3845,17 @@ html[data-theme='dark'] .skeleton {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
+  /* 公告条自带下边距，这里不要再叠行间距 */
+  .home-intro:has(.home-announcement) {
+    row-gap: 0;
+  }
+  /* 窄屏下公告改为上下排列，标签不再和正文抢宽度 */
+  .home-announcement {
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+    margin-bottom: 34px;
+  }
   .home-qrcode-card {
     width: 100%;
     padding: 20px;
@@ -3752,6 +3864,13 @@ html[data-theme='dark'] .skeleton {
     flex-direction: column;
     align-items: flex-start;
     gap: 18px;
+  }
+  .site-announcement-head {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .site-announcement-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

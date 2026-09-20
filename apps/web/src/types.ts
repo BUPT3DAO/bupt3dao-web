@@ -167,9 +167,11 @@ export interface AdminEntry {
   added_at: string | null;
 }
 
-/** 站点级公开配置，目前只有首页的社区群二维码 */
+/** 站点级公开配置：首页的社区群二维码与公告 */
 export interface SiteConfig {
   group_qrcode_url: string | null;
+  /** 首页首屏顶部的公告，Markdown 文本；空字符串表示没有公告 */
+  announcement: string;
 }
 
 export interface PageResult<T> {

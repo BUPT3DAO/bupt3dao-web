@@ -17,6 +17,7 @@ _LIGHT_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
         ("topic", "VARCHAR(20) NOT NULL DEFAULT ''"),
     ),
     "profile_details": (("university", "VARCHAR(80) NOT NULL DEFAULT ''"),),
+    "site_config": (("announcement", "TEXT NOT NULL DEFAULT ''"),),
 }
 
 

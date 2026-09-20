@@ -239,4 +239,10 @@ export const api = {
   },
 
   removeGroupQrcode: () => request<void>('/admin/site/qrcode', { method: 'DELETE' }),
+
+  updateAnnouncement: (content: string) =>
+    request<SiteConfig>('/admin/site/announcement', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
 };

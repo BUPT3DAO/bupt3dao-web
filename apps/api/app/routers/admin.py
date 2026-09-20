@@ -34,6 +34,7 @@ from app.schemas import (
     MemberOut,
     MemberUpdate,
     PostListOut,
+    SiteAnnouncementUpdate,
     SiteConfigOut,
 )
 from app.security import get_admin
@@ -384,3 +385,15 @@ def remove_group_qrcode(db: Session = Depends(get_db)) -> None:
     remove_image(config.group_qrcode_url)
     config.group_qrcode_url = None
     db.commit()
+
+
+@router.put("/site/announcement", response_model=SiteConfigOut)
+def update_announcement(
+    payload: SiteAnnouncementUpdate,
+    db: Session = Depends(get_db),
+) -> SiteConfigOut:
+    """更新首页公告，内容按 Markdown 渲染；传空字符串即撤下公告。"""
+    config = _site_config(db)
+    config.announcement = payload.content.strip()
+    db.commit()
+    return SiteConfigOut.model_validate(config)

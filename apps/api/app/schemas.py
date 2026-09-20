@@ -11,6 +11,7 @@ POST_TITLE_MAX_LENGTH = 140
 POST_CONTENT_MAX_LENGTH = 2000
 COMMENT_CONTENT_MAX_LENGTH = 2000
 ARTICLE_CONTENT_MAX_LENGTH = 20000
+ANNOUNCEMENT_MAX_LENGTH = 5000
 
 # 帖子板块；空字符串表示「全部动态」
 POST_TOPICS = ("技术交流", "项目共建", "校园日常")
@@ -315,6 +316,13 @@ class SiteConfigOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     group_qrcode_url: str | None = None
+    announcement: str = ""
+
+
+class SiteAnnouncementUpdate(BaseModel):
+    """首页公告正文，按 Markdown 渲染。空字符串表示撤下公告。"""
+
+    content: str = Field(default="", max_length=ANNOUNCEMENT_MAX_LENGTH)
 
 
 class ArticlePayload(BaseModel):

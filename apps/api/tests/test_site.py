@@ -30,11 +30,16 @@ def _upload(client: TestClient, auth: dict[str, str], name: str = "qrcode.png"):
     )
 
 
+def _set_announcement(client: TestClient, auth: dict[str, str], content: str):
+    return client.put("/api/admin/site/announcement", json={"content": content}, headers=auth)
+
+
 def test_site_config_is_public_and_empty_by_default(client: TestClient) -> None:
     response = client.get("/api/site")
 
     assert response.status_code == 200
     assert response.json()["group_qrcode_url"] is None
+    assert response.json()["announcement"] == ""
 
 
 def test_upload_qrcode_requires_admin(client: TestClient, auth: dict[str, str]) -> None:
@@ -79,3 +84,40 @@ def test_admin_remove_qrcode(client: TestClient, admin_auth: dict[str, str]) -> 
     assert client.get(url).status_code == 404
     # 重复移除保持幂等
     assert client.delete("/api/admin/site/qrcode", headers=admin_auth).status_code == 204
+
+
+def test_update_announcement_requires_admin(client: TestClient, auth: dict[str, str]) -> None:
+    assert _set_announcement(client, {}, "招新啦").status_code == 401
+    # 已登录但不是管理员
+    assert _set_announcement(client, auth, "招新啦").status_code == 403
+
+
+def test_admin_update_and_clear_announcement(
+    client: TestClient, admin_auth: dict[str, str]
+) -> None:
+    content = "# 招新\n\n欢迎加入 **北邮链协**。"
+    updated = _set_announcement(client, admin_auth, content)
+
+    assert updated.status_code == 200
+    assert updated.json()["announcement"] == content
+    assert client.get("/api/site").json()["announcement"] == content
+
+    # 公告与二维码互不影响：换二维码不会把公告冲掉
+    _upload(client, admin_auth)
+    site = client.get("/api/site").json()
+    assert site["announcement"] == content
+    assert site["group_qrcode_url"] is not None
+
+    # 清空即撤下公告
+    assert _set_announcement(client, admin_auth, "").status_code == 200
+    assert client.get("/api/site").json()["announcement"] == ""
+
+
+def test_announcement_is_stripped_and_length_limited(
+    client: TestClient, admin_auth: dict[str, str]
+) -> None:
+    trimmed = _set_announcement(client, admin_auth, "\n  公告正文  \n")
+
+    assert trimmed.status_code == 200
+    assert trimmed.json()["announcement"] == "公告正文"
+    assert _set_announcement(client, admin_auth, "公" * 5001).status_code == 422

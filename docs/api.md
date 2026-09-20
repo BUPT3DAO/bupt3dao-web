@@ -103,7 +103,7 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/api/site` | 公开 | 站点级公开配置，目前只有 `group_qrcode_url`（首页首屏的社区群二维码）。没配置过时返回 `{"group_qrcode_url": null}`，首页据此不渲染二维码卡片 |
+| GET | `/api/site` | 公开 | 站点级公开配置：`group_qrcode_url`（首页首屏的社区群二维码）与 `announcement`（首页首屏顶部的公告，Markdown 文本）。没配置过时返回 `{"group_qrcode_url": null, "announcement": ""}`，首页据此不渲染对应区块 |
 
 ## 认证 `auth`
 
@@ -215,6 +215,7 @@ Authorization: Bearer <token>
 | POST | `/api/admin/articles/{article_id}/move` | 调整置顶顺序。body：`{direction}`，取值 `up` / `down` |
 | POST | `/api/admin/site/qrcode` | 上传 / 更换首页社区群二维码（`multipart/form-data`，字段名 `file`）。上限 4 MB，旧图会被删除 |
 | DELETE | `/api/admin/site/qrcode` | 移除首页社区群二维码并删除图片；重复调用保持幂等（204） |
+| PUT | `/api/admin/site/announcement` | 更新首页公告。body：`{content}`，Markdown 文本（≤ 5000 字符），首尾空白会被去掉；传空字符串即撤下公告 |
 
 ## 调用示例
 

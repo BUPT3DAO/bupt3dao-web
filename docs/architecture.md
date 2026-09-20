@@ -99,7 +99,7 @@ apps/api/app/
 
 站内消息由 [posts.py](../apps/api/app/routers/posts.py) 在落评论时顺手写入，[notifications.py](../apps/api/app/routers/notifications.py) 只负责读取与标记已读：一级评论发给帖子作者，回复发给被回复的人，自己回复自己不产生消息。
 
-站点级公开配置（首页社区群二维码）由 [site.py](../apps/api/app/routers/site.py) 提供只读的 `GET /api/site`，管理员通过 `routers/admin.py` 里的 `/admin/site/qrcode` 上传或移除。首页首屏由客户端组件 [home-group-qrcode.tsx](../apps/web/src/components/home-group-qrcode.tsx) 在挂载后拉取该配置：`group_qrcode_url` 有值时首屏变成「文案 + 二维码卡片」两栏并隐藏装饰圆环，为空时维持原来的单栏排版。
+站点级公开配置（首页公告与社区群二维码）由 [site.py](../apps/api/app/routers/site.py) 提供只读的 `GET /api/site`，管理员通过 `routers/admin.py` 里的 `/admin/site/announcement` 更新公告、`/admin/site/qrcode` 上传或移除二维码。首页首屏由客户端组件在挂载后拉取该配置：[home-announcement.tsx](../apps/web/src/components/home-announcement.tsx) 把 `announcement` 按 Markdown 渲染成顶部的公告条，[home-group-qrcode.tsx](../apps/web/src/components/home-group-qrcode.tsx) 在 `group_qrcode_url` 有值时把首屏变成「文案 + 二维码卡片」两栏并隐藏装饰圆环。两个字段都为空时首屏维持原来的单栏排版，公告条存在时文案整体下移。
 
 ### 鉴权依赖链
 
@@ -141,7 +141,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 | `user_moderation` | 封禁状态 | 主键即 `user_id` |
 | `featured_members` | 成员风采 | 主键即 `user_id`，带 `sort_order` |
 | `admin_users` | 后台添加的管理员 | 主键即 `address`，按地址与 `users` 关联 |
-| `site_config` | 站点级配置 | 单行表，固定主键 `SITE_CONFIG_ID = 1`；目前只放首页社区群二维码地址 |
+| `site_config` | 站点级配置 | 单行表，固定主键 `SITE_CONFIG_ID = 1`；放首页公告正文（Markdown）与社区群二维码地址 |
 
 设计上刻意把**新增能力放进独立表**（`profile_details`、`user_moderation`、`featured_members`），这样老库不需要破坏性迁移。`User` 上有一批 `@property`（`cohort`、`school`、`links` 等）把扩展资料摊平，让 `/auth/me` 和公开主页复用同一套输出模型。
 

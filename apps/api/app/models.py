@@ -210,7 +210,7 @@ class Article(Base):
 class SiteConfig(Base):
     """站点级配置，全站只有 SITE_CONFIG_ID 这一行。
 
-    目前只承载首页的社区群二维码；换成通用 KV 会失去字段类型与校验，
+    目前承载首页的社区群二维码与公告；换成通用 KV 会失去字段类型与校验，
     因此这里按需要显式加列。
     """
 
@@ -219,6 +219,8 @@ class SiteConfig(Base):
     id: Mapped[int] = mapped_column(primary_key=True, default=SITE_CONFIG_ID)
     # 首页「加入社区群」展示的二维码，为空表示首页不展示该区块
     group_qrcode_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 首页首屏顶部的公告，内容按 Markdown 渲染，为空表示不展示公告
+    announcement: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
