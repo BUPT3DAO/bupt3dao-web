@@ -144,8 +144,18 @@ class NonceStore:
         self._items[address] = (nonce, time.monotonic() + self._ttl)
         return nonce
 
+    def peek(self, address: str) -> str | None:
+        """只读取当前 nonce，不作废。用于签名校验前比对。"""
+        self._purge()
+        item = self._items.get(address)
+        return item[0] if item else None
+
     def consume(self, address: str) -> str | None:
-        """取出并作废该地址的 nonce（一次性）。"""
+        """取出并作废该地址的 nonce（一次性）。
+
+        必须在签名校验通过后调用：若在校验前消费，任何伪造签名的请求
+        都会把目标地址的 nonce 作废，使该地址无法登录。
+        """
         self._purge()
         item = self._items.pop(address, None)
         return item[0] if item else None
