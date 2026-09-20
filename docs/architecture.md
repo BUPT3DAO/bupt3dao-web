@@ -99,7 +99,7 @@ apps/api/app/
 
 站内消息由 [posts.py](../apps/api/app/routers/posts.py) 在落评论时顺手写入，[notifications.py](../apps/api/app/routers/notifications.py) 只负责读取与标记已读：一级评论发给帖子作者，回复发给被回复的人，自己回复自己不产生消息。
 
-站点级公开配置（首页社区群二维码）由 [site.py](../apps/api/app/routers/site.py) 提供只读的 `GET /api/site`，管理员通过 `routers/admin.py` 里的 `/admin/site/qrcode` 上传或移除。首页由客户端组件 [home-group-qrcode.tsx](../apps/web/src/components/home-group-qrcode.tsx) 在挂载后拉取该配置，`group_qrcode_url` 为空时整块不渲染。
+站点级公开配置（首页社区群二维码）由 [site.py](../apps/api/app/routers/site.py) 提供只读的 `GET /api/site`，管理员通过 `routers/admin.py` 里的 `/admin/site/qrcode` 上传或移除。首页首屏由客户端组件 [home-group-qrcode.tsx](../apps/web/src/components/home-group-qrcode.tsx) 在挂载后拉取该配置：`group_qrcode_url` 有值时首屏变成「文案 + 二维码卡片」两栏并隐藏装饰圆环，为空时维持原来的单栏排版。
 
 ### 鉴权依赖链
 

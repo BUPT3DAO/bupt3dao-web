@@ -152,7 +152,7 @@ export default function AdminPage() {
   }
 
   async function removeQrcode() {
-    if (!window.confirm('移除后首页将不再显示「加入社区群」区块。确定移除？')) return;
+    if (!window.confirm('移除后首页首屏将不再显示二维码卡片。确定移除？')) return;
     setQrcodeBusy(true);
     setAdminError('');
     try {
@@ -261,7 +261,7 @@ export default function AdminPage() {
             {tab === '管理员'
               ? '管理员可以添加新的管理员，无需审批；对方的权限在其钱包登录后立即生效。服务器环境变量里的管理员不在这里移除。'
               : tab === '站点设置'
-                ? '维护首页的社区群二维码。替换后首页「加入社区群」区块会自动展示新图；移除后该区块隐藏。'
+                ? '维护首页首屏的社区群二维码卡片。替换后首页立刻展示新图；移除后卡片整块消失。'
                 : tab === '校友墙管理'
                 ? '只列出已上墙成员。在「用户管理」中搜索并添加新校友；被封禁成员不会公开展示。'
                 : tab === '帖子管理'
@@ -426,7 +426,7 @@ export default function AdminPage() {
               <div className="site-qrcode-text">
                 <h3>首页社区群二维码</h3>
                 <p>
-                  上传后显示在首页的「加入社区群」区块。替换会删除旧图，移除则整块隐藏。
+                  上传后显示在首页首屏右侧的二维码卡片。替换会删除旧图，移除则整块隐藏。
                 </p>
                 <label className="btn btn-primary btn-sm" htmlFor="group-qrcode-input">
                   <Icon name="image" size={14} />
@@ -464,7 +464,7 @@ export default function AdminPage() {
               <section className="card site-qrcode-editor">
                 <div className="site-qrcode-text">
                   <h3>移除二维码</h3>
-                  <p>移除后首页不再展示「加入社区群」区块，随时可以重新上传。</p>
+                  <p>移除后首页首屏不再出现二维码卡片，随时可以重新上传。</p>
                 </div>
                 <button
                   className="btn btn-danger btn-sm"

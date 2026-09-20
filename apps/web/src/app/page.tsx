@@ -6,27 +6,30 @@ export default function HomePage() {
   return (
     <div className="home-page">
       <section className="home-intro">
-        <span className="eyebrow">BEIJING UNIVERSITY OF POSTS AND TELECOMMUNICATIONS</span>
-        <span className="home-community-label">
-          <span className="status-dot" /> BUPT3DAO · 开放的 Web3 社区
-        </span>
-        <h1>
-          从北邮链协出发。
-          <br />与<span>同路人</span>，共建未来。
-        </h1>
-        <p>
-          我们因好奇而相遇，以技术和协作连接彼此。
-          <br />
-          在这里，找到值得交流的想法，也找到一起前行的人。
-        </p>
-        <div className="home-actions">
-          <Link href="/forum" className="btn btn-primary">
-            进入社区论坛 <Icon name="arrow" size={18} />
-          </Link>
-          <Link href="/members" className="btn btn-ghost">
-            认识我们的校友 <Icon name="upRight" size={18} />
-          </Link>
+        <div className="home-intro-main">
+          <span className="eyebrow">BEIJING UNIVERSITY OF POSTS AND TELECOMMUNICATIONS</span>
+          <span className="home-community-label">
+            <span className="status-dot" /> BUPT3DAO · 开放的 Web3 社区
+          </span>
+          <h1>
+            从北邮链协出发。
+            <br />与<span>同路人</span>，共建未来。
+          </h1>
+          <p>
+            我们因好奇而相遇，以技术和协作连接彼此。
+            <br />
+            在这里，找到值得交流的想法，也找到一起前行的人。
+          </p>
+          <div className="home-actions">
+            <Link href="/forum" className="btn btn-primary">
+              进入社区论坛 <Icon name="arrow" size={18} />
+            </Link>
+            <Link href="/members" className="btn btn-ghost">
+              认识我们的校友 <Icon name="upRight" size={18} />
+            </Link>
+          </div>
         </div>
+        <HomeGroupQrcode />
         <div className="home-art" aria-hidden="true">
           <div className="home-ring ring-one" />
           <div className="home-ring ring-two" />
@@ -74,7 +77,6 @@ export default function HomePage() {
           </span>
         </Link>
       </div>
-      <HomeGroupQrcode />
       <footer className="home-footer">
         <span>保持好奇，持续共建。</span>
         <div>

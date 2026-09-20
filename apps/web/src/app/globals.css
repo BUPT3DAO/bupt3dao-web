@@ -2591,7 +2591,17 @@ html[data-theme='dark'] {
   overflow: hidden;
   padding: 48px 0 65px;
 }
-.home-intro > .eyebrow {
+/* 配了社区群二维码时，首屏改成「文案 + 二维码卡片」两栏，二维码不用滚动就能看到 */
+.home-intro:has(.home-qrcode-card) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 56px;
+}
+.home-intro-main {
+  min-width: 0;
+}
+.home-intro-main > .eyebrow {
   font-size: 8px;
   letter-spacing: 1.6px;
   color: var(--ink-soft);
@@ -2617,7 +2627,7 @@ html[data-theme='dark'] {
 .home-intro h1 > span {
   color: var(--accent);
 }
-.home-intro > p {
+.home-intro-main > p {
   font-size: 14px;
   line-height: 2;
   color: var(--ink-soft);
@@ -2761,51 +2771,53 @@ html[data-theme='dark'] {
 .home-footer a:hover {
   color: var(--accent);
 }
-/* 首页「加入社区群」：二维码由管理员在后台维护，未配置时整块不渲染 */
-.home-qrcode {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 36px;
-  padding: 30px 0;
-  border-bottom: 1px solid var(--border);
-}
-.home-qrcode h2 {
-  font-size: 20px;
-  font-weight: 550;
-  margin: 14px 0 12px;
-}
-.home-qrcode p {
-  color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.9;
-  max-width: 420px;
-}
-.home-qrcode-figure {
+/* 首屏的社区群二维码卡片：二维码由管理员在后台维护，未配置时整块不渲染 */
+.home-qrcode-card {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  padding: 14px 14px 11px;
+  gap: 14px;
+  width: 246px;
+  padding: 24px 22px;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 22px;
   background: var(--panel);
+  box-shadow: 15px 25px 60px #67509414;
+  text-align: center;
 }
-.home-qrcode-figure img {
+/* 卡片取代了右侧的装饰圆环，避免两者叠在一起 */
+.home-intro:has(.home-qrcode-card) .home-art {
+  display: none;
+}
+.home-qrcode-tag {
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  color: var(--muted);
+}
+.home-qrcode-figure {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
   /* 二维码留白固定用白底，暗色主题下也能正常扫码 */
-  width: 168px;
-  height: 168px;
-  object-fit: contain;
-  border-radius: 10px;
   background: #fff;
 }
-.home-qrcode-figure figcaption {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 10px;
+.home-qrcode-figure img {
+  display: block;
+  width: 156px;
+  height: 156px;
+  object-fit: contain;
+}
+.home-qrcode-card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.home-qrcode-card p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--ink-soft);
 }
 .forum-layout {
   display: grid;
@@ -3512,10 +3524,10 @@ html[data-theme='dark'] .skeleton {
     margin-top: 26px;
     font-size: 11px;
   }
-  .home-intro > p {
+  .home-intro-main > p {
     font-size: 12px;
   }
-  .home-intro > .eyebrow {
+  .home-intro-main > .eyebrow {
     font-size: 6px;
   }
   .members-intro {
@@ -3727,14 +3739,14 @@ html[data-theme='dark'] .skeleton {
     border-left: 0;
     border-top: 1px solid var(--border);
   }
-  /* 二维码在窄屏下改为纵向排列，图片居中 */
-  .home-qrcode {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 22px;
+  /* 窄屏下首屏回到单栏：文案在上，二维码卡片铺满宽度排在下面 */
+  .home-intro:has(.home-qrcode-card) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
   }
-  .home-qrcode-figure {
-    align-self: center;
+  .home-qrcode-card {
+    width: 100%;
+    padding: 20px;
   }
   .site-qrcode-editor {
     flex-direction: column;

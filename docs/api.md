@@ -103,7 +103,7 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/api/site` | 公开 | 站点级公开配置，目前只有 `group_qrcode_url`（首页社区群二维码）。没配置过时返回 `{"group_qrcode_url": null}`，首页据此隐藏「加入社区群」区块 |
+| GET | `/api/site` | 公开 | 站点级公开配置，目前只有 `group_qrcode_url`（首页首屏的社区群二维码）。没配置过时返回 `{"group_qrcode_url": null}`，首页据此不渲染二维码卡片 |
 
 ## 认证 `auth`
 
