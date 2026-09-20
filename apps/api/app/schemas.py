@@ -309,6 +309,14 @@ class UploadedImageOut(BaseModel):
     url: str
 
 
+class SiteConfigOut(BaseModel):
+    """站点公开配置。前端拿不到图片时前端自己决定怎么展示。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    group_qrcode_url: str | None = None
+
+
 class ArticlePayload(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

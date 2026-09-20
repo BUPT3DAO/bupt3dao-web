@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HomeGroupQrcode } from '@/components/home-group-qrcode';
 import { Icon } from '@/components/icon';
 
 export default function HomePage() {
@@ -73,6 +74,7 @@ export default function HomePage() {
           </span>
         </Link>
       </div>
+      <HomeGroupQrcode />
       <footer className="home-footer">
         <span>保持好奇，持续共建。</span>
         <div>

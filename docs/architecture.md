@@ -91,12 +91,15 @@ apps/api/app/
 ├── security.py    JWT 签发/校验、当前用户、管理员依赖
 ├── siwe.py        EIP-4361 消息构造、解析、签名校验、nonce 存储
 ├── migrations.py  建表与轻量补列
-└── routers/       auth / posts / notifications / users / members / articles / admin
+├── uploads.py     图片校验与落盘（头像、背景图、正文配图、站点二维码共用）
+└── routers/       auth / posts / notifications / users / members / articles / site / admin
 ```
 
 所有业务路由挂在一个 `prefix="/api"` 的 APIRouter 下（[main.py](../apps/api/app/main.py)），因此对外路径统一是 `/api/...`。健康检查为 `GET /api/health`，返回 `{"status": "ok", "environment": ...}`。
 
 站内消息由 [posts.py](../apps/api/app/routers/posts.py) 在落评论时顺手写入，[notifications.py](../apps/api/app/routers/notifications.py) 只负责读取与标记已读：一级评论发给帖子作者，回复发给被回复的人，自己回复自己不产生消息。
+
+站点级公开配置（首页社区群二维码）由 [site.py](../apps/api/app/routers/site.py) 提供只读的 `GET /api/site`，管理员通过 `routers/admin.py` 里的 `/admin/site/qrcode` 上传或移除。首页由客户端组件 [home-group-qrcode.tsx](../apps/web/src/components/home-group-qrcode.tsx) 在挂载后拉取该配置，`group_qrcode_url` 为空时整块不渲染。
 
 ### 鉴权依赖链
 
@@ -138,6 +141,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 | `user_moderation` | 封禁状态 | 主键即 `user_id` |
 | `featured_members` | 成员风采 | 主键即 `user_id`，带 `sort_order` |
 | `admin_users` | 后台添加的管理员 | 主键即 `address`，按地址与 `users` 关联 |
+| `site_config` | 站点级配置 | 单行表，固定主键 `SITE_CONFIG_ID = 1`；目前只放首页社区群二维码地址 |
 
 设计上刻意把**新增能力放进独立表**（`profile_details`、`user_moderation`、`featured_members`），这样老库不需要破坏性迁移。`User` 上有一批 `@property`（`cohort`、`school`、`links` 等）把扩展资料摊平，让 `/auth/me` 和公开主页复用同一套输出模型。
 

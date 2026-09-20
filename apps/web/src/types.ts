@@ -167,6 +167,11 @@ export interface AdminEntry {
   added_at: string | null;
 }
 
+/** 站点级公开配置，目前只有首页的社区群二维码 */
+export interface SiteConfig {
+  group_qrcode_url: string | null;
+}
+
 export interface PageResult<T> {
   items: T[];
   total: number;

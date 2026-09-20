@@ -12,14 +12,15 @@ import { api } from '@/lib/api';
 import { shortAddress, userMetaLine } from '@/lib/format';
 import type { AdminEntry, AdminUser, ArticleSummary, PostSummary } from '@/types';
 
-const tabs = ['用户管理', '帖子管理', '文章管理', '校友墙管理', '管理员'] as const;
+const tabs = ['用户管理', '帖子管理', '文章管理', '校友墙管理', '站点设置', '管理员'] as const;
 type Tab = (typeof tabs)[number];
 
-const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'spark' | 'shield'> = {
+const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'spark' | 'image' | 'shield'> = {
   用户管理: 'user',
   帖子管理: 'message',
   文章管理: 'book',
   校友墙管理: 'spark',
+  站点设置: 'image',
   管理员: 'shield',
 };
 
@@ -30,6 +31,8 @@ export default function AdminPage() {
   const [posts, setPosts] = useState<PostSummary[]>([]);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
+  const [qrcodeUrl, setQrcodeUrl] = useState<string | null>(null);
+  const [qrcodeBusy, setQrcodeBusy] = useState(false);
   const [newAdmin, setNewAdmin] = useState('');
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminError, setAdminError] = useState('');
@@ -49,7 +52,10 @@ export default function AdminPage() {
     setError('');
     async function load() {
       try {
-        if (tab === '管理员') {
+        if (tab === '站点设置') {
+          const data = await api.siteConfig();
+          if (!cancelled) setQrcodeUrl(data.group_qrcode_url);
+        } else if (tab === '管理员') {
           const data = await api.listAdmins();
           if (!cancelled) setAdmins(data.items);
         } else if (tab === '帖子管理') {
@@ -128,6 +134,35 @@ export default function AdminPage() {
       setAdminError(cause instanceof Error ? cause.message : '移除失败，请稍后重试');
     } finally {
       setAdminBusy(false);
+    }
+  }
+
+  async function uploadQrcode(file: File) {
+    setQrcodeBusy(true);
+    setAdminError('');
+    try {
+      const config = await api.uploadGroupQrcode(file);
+      setQrcodeUrl(config.group_qrcode_url);
+      changed('社区群二维码已更新');
+    } catch (cause) {
+      setAdminError(cause instanceof Error ? cause.message : '上传失败，请稍后重试');
+    } finally {
+      setQrcodeBusy(false);
+    }
+  }
+
+  async function removeQrcode() {
+    if (!window.confirm('移除后首页将不再显示「加入社区群」区块。确定移除？')) return;
+    setQrcodeBusy(true);
+    setAdminError('');
+    try {
+      await api.removeGroupQrcode();
+      setQrcodeUrl(null);
+      changed('社区群二维码已移除');
+    } catch (cause) {
+      setAdminError(cause instanceof Error ? cause.message : '移除失败，请稍后重试');
+    } finally {
+      setQrcodeBusy(false);
     }
   }
 
@@ -225,7 +260,9 @@ export default function AdminPage() {
           <p>
             {tab === '管理员'
               ? '管理员可以添加新的管理员，无需审批；对方的权限在其钱包登录后立即生效。服务器环境变量里的管理员不在这里移除。'
-              : tab === '校友墙管理'
+              : tab === '站点设置'
+                ? '维护首页的社区群二维码。替换后首页「加入社区群」区块会自动展示新图；移除后该区块隐藏。'
+                : tab === '校友墙管理'
                 ? '只列出已上墙成员。在「用户管理」中搜索并添加新校友；被封禁成员不会公开展示。'
                 : tab === '帖子管理'
                   ? '查看全部帖子（含被封禁用户的帖子）。删除操作不可撤销。'
@@ -245,7 +282,7 @@ export default function AdminPage() {
           </Link>
         )}
       </div>
-      {tab !== '管理员' && (
+      {tab !== '管理员' && tab !== '站点设置' && (
         <form className="admin-search" onSubmit={submitSearch}>
           <label className="search-field">
             <Icon name="search" size={17} />
@@ -383,6 +420,63 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        ) : tab === '站点设置' ? (
+          <div className="admin-list">
+            <section className="card site-qrcode-editor">
+              <div className="site-qrcode-text">
+                <h3>首页社区群二维码</h3>
+                <p>
+                  上传后显示在首页的「加入社区群」区块。替换会删除旧图，移除则整块隐藏。
+                </p>
+                <label className="btn btn-primary btn-sm" htmlFor="group-qrcode-input">
+                  <Icon name="image" size={14} />
+                  {qrcodeBusy ? '上传中…' : qrcodeUrl ? '更换二维码' : '上传二维码'}
+                </label>
+                <input
+                  id="group-qrcode-input"
+                  className="visually-hidden"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    // 清空 value，同一个文件再次选择也能触发上传
+                    event.target.value = '';
+                    if (file) void uploadQrcode(file);
+                  }}
+                  disabled={qrcodeBusy}
+                />
+                <p className="hint">支持 PNG / JPEG / WebP / GIF，不超过 4 MB，建议用正方形图片。</p>
+              </div>
+              <div className="site-qrcode-preview">
+                {qrcodeUrl ? (
+                  <>
+                    {/* 二维码是上传文件，经同源 /uploads 代理返回，不需要 Next 图片优化 */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrcodeUrl} alt="当前社区群二维码" />
+                  </>
+                ) : (
+                  <span className="muted">尚未设置二维码</span>
+                )}
+              </div>
+            </section>
+
+            {qrcodeUrl && (
+              <section className="card site-qrcode-editor">
+                <div className="site-qrcode-text">
+                  <h3>移除二维码</h3>
+                  <p>移除后首页不再展示「加入社区群」区块，随时可以重新上传。</p>
+                </div>
+                <button
+                  className="btn btn-danger btn-sm"
+                  disabled={qrcodeBusy}
+                  onClick={() => void removeQrcode()}
+                >
+                  <Icon name="trash" size={14} />
+                  移除二维码
+                </button>
+              </section>
+            )}
+          </div>
         ) : (
           <div className="admin-list">
             {tab === '帖子管理' &&
@@ -424,23 +518,25 @@ export default function AdminPage() {
           </div>
         )
       ))}
-      <div className="pagination">
-        <button
-          className="btn btn-ghost btn-sm"
-          disabled={page === 0 || loading}
-          onClick={() => setPage((n) => n - 1)}
-        >
-          上一页
-        </button>
-        <span>第 {page + 1} 页</span>
-        <button
-          className="btn btn-ghost btn-sm"
-          disabled={(page + 1) * 12 >= total || loading}
-          onClick={() => setPage((n) => n + 1)}
-        >
-          下一页
-        </button>
-      </div>
+      {tab !== '站点设置' && (
+        <div className="pagination">
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={page === 0 || loading}
+            onClick={() => setPage((n) => n - 1)}
+          >
+            上一页
+          </button>
+          <span>第 {page + 1} 页</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={(page + 1) * 12 >= total || loading}
+            onClick={() => setPage((n) => n + 1)}
+          >
+            下一页
+          </button>
+        </div>
+      )}
     </div>
   );
 }

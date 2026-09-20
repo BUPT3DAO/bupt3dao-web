@@ -15,7 +15,8 @@
 | 文章 | Markdown 长文发布与编辑、置顶、手动排序。 |
 | 个人主页 | 昵称、头像、主页背景图、入学年份、学院、专业、学校、个人链接。 |
 | 成员风采 | 由管理员挑选并维护的成员展示位，展示介绍支持 Markdown。 |
-| 管理后台 | 封禁用户、维护管理员名单、管理帖子、维护成员风采、文章置顶与排序。 |
+| 社区群二维码 | 首页底部展示社区群二维码，管理员可在后台「站点设置」随时更换或移除；未设置时首页不显示该区块。 |
+| 管理后台 | 封禁用户、维护管理员名单、管理帖子、维护成员风采、文章置顶与排序、更换首页社区群二维码。 |
 
 ## 技术栈
 
@@ -39,7 +40,7 @@
 │   │   ├── src/components/   # UI 组件（含 web3-providers、wallet-provider）
 │   │   └── src/lib/          # API 客户端、请求转发
 │   └── api/                  # FastAPI 后端
-│       ├── app/routers/      # auth / posts / notifications / users / members / articles / admin
+│       ├── app/routers/      # auth / posts / notifications / users / members / articles / site / admin
 │       ├── app/models.py     # SQLAlchemy 数据模型
 │       ├── app/siwe.py       # EIP-4361 消息构造与签名校验
 │       └── tests/            # pytest 用例

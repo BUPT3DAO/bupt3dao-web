@@ -16,6 +16,7 @@ import type {
   PostPayload,
   PostSummary,
   ProfilePayload,
+  SiteConfig,
   TokenResponse,
   UserProfile,
   UserPublic,
@@ -228,4 +229,14 @@ export const api = {
     body.append('file', file);
     return request<{ url: string }>('/users/me/images', { method: 'POST', body });
   },
+
+  siteConfig: () => request<SiteConfig>('/site'),
+
+  uploadGroupQrcode: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<SiteConfig>('/admin/site/qrcode', { method: 'POST', body });
+  },
+
+  removeGroupQrcode: () => request<void>('/admin/site/qrcode', { method: 'DELETE' }),
 };

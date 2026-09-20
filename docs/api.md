@@ -99,6 +99,12 @@ Authorization: Bearer <token>
 | --- | --- | --- | --- |
 | GET | `/api/health` | 公开 | 健康检查，返回 `{"status":"ok","environment":"..."}` |
 
+## 站点配置 `site`
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/site` | 公开 | 站点级公开配置，目前只有 `group_qrcode_url`（首页社区群二维码）。没配置过时返回 `{"group_qrcode_url": null}`，首页据此隐藏「加入社区群」区块 |
+
 ## 认证 `auth`
 
 | 方法 | 路径 | 权限 | 说明 |
@@ -207,6 +213,8 @@ Authorization: Bearer <token>
 | GET | `/api/admin/articles` | 文章管理列表 |
 | PATCH | `/api/admin/articles/{article_id}/pin` | 置顶 / 取消置顶。body：`{is_pinned}` |
 | POST | `/api/admin/articles/{article_id}/move` | 调整置顶顺序。body：`{direction}`，取值 `up` / `down` |
+| POST | `/api/admin/site/qrcode` | 上传 / 更换首页社区群二维码（`multipart/form-data`，字段名 `file`）。上限 4 MB，旧图会被删除 |
+| DELETE | `/api/admin/site/qrcode` | 移除首页社区群二维码并删除图片；重复调用保持幂等（204） |
 
 ## 调用示例
 

@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db import engine
 from app.migrations import ensure_schema
-from app.routers import admin, articles, auth, members, notifications, posts, users
+from app.routers import admin, articles, auth, members, notifications, posts, site, users
 
 # 骨架阶段用 create_all + 轻量补列建表；后续数据模型稳定后可换成 Alembic 迁移
 ensure_schema(engine)
@@ -31,6 +31,7 @@ api.include_router(notifications.router)
 api.include_router(users.router)
 api.include_router(members.router)
 api.include_router(articles.router)
+api.include_router(site.router)
 api.include_router(admin.router)
 
 

@@ -1,12 +1,21 @@
 """所有管理操作都经过实时白名单与封禁状态校验。"""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.models import AdminUser, Article, FeaturedMember, Post, User, UserModeration
+from app.models import (
+    SITE_CONFIG_ID,
+    AdminUser,
+    Article,
+    FeaturedMember,
+    Post,
+    SiteConfig,
+    User,
+    UserModeration,
+)
 from app.routers.articles import ARTICLE_ORDER
 from app.routers.articles import summary_of as article_summary
 from app.routers.posts import count_comments
@@ -25,9 +34,11 @@ from app.schemas import (
     MemberOut,
     MemberUpdate,
     PostListOut,
+    SiteConfigOut,
 )
 from app.security import get_admin
 from app.siwe import SiweError, normalize_address
+from app.uploads import remove_image, save_image
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_admin)])
 
@@ -338,3 +349,38 @@ def move_article(
         item.sort_order = (position + 1) * 10
     db.commit()
     return None
+
+
+def _site_config(db: Session) -> SiteConfig:
+    """站点配置只有一行，第一次写入时按需建出来。"""
+    config = db.get(SiteConfig, SITE_CONFIG_ID)
+    if config is None:
+        config = SiteConfig(id=SITE_CONFIG_ID)
+        db.add(config)
+    return config
+
+
+@router.post("/site/qrcode", response_model=SiteConfigOut)
+def upload_group_qrcode(
+    file: UploadFile = File(...),
+    user: User = Depends(get_admin),
+    db: Session = Depends(get_db),
+) -> SiteConfigOut:
+    """更换首页的社区群二维码；旧图会从上传目录删掉，避免堆积。"""
+    config = _site_config(db)
+    url = save_image(file, user.address, settings.max_image_bytes, "二维码")
+    remove_image(config.group_qrcode_url)
+    config.group_qrcode_url = url
+    db.commit()
+    return SiteConfigOut.model_validate(config)
+
+
+@router.delete("/site/qrcode", status_code=204)
+def remove_group_qrcode(db: Session = Depends(get_db)) -> None:
+    """移除二维码，首页的「加入社区群」区块随之隐藏。"""
+    config = db.get(SiteConfig, SITE_CONFIG_ID)
+    if config is None or config.group_qrcode_url is None:
+        return
+    remove_image(config.group_qrcode_url)
+    config.group_qrcode_url = None
+    db.commit()

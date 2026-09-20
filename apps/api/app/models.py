@@ -9,6 +9,8 @@ from app.db import Base
 MAX_PROFILE_LINKS = 5
 # 评论只允许「评论 → 回复 → 回复的回复」三级
 MAX_COMMENT_DEPTH = 3
+# 站点配置是单行表，固定用这个主键
+SITE_CONFIG_ID = 1
 
 
 def utcnow() -> datetime:
@@ -203,6 +205,23 @@ class Article(Base):
     )
 
     author: Mapped[User] = relationship(back_populates="articles")
+
+
+class SiteConfig(Base):
+    """站点级配置，全站只有 SITE_CONFIG_ID 这一行。
+
+    目前只承载首页的社区群二维码；换成通用 KV 会失去字段类型与校验，
+    因此这里按需要显式加列。
+    """
+
+    __tablename__ = "site_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=SITE_CONFIG_ID)
+    # 首页「加入社区群」展示的二维码，为空表示首页不展示该区块
+    group_qrcode_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class Notification(Base):
