@@ -2827,9 +2827,11 @@ html[data-theme='dark'] {
 .home-announcement {
   position: relative;
   z-index: 2;
+  /* 铃铛角标在左上角，公告正文在它下面；点角标可收起正文 */
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 20px;
+  gap: 14px;
   /* 首屏是两栏 grid 时公告独占第一行，文案与二维码卡片顺延到第二行 */
   grid-column: 1 / -1;
   margin-bottom: 46px;
@@ -2845,18 +2847,34 @@ html[data-theme='dark'] {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  margin-top: 2px;
   padding: 6px 12px;
+  border: 0;
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.home-announcement-tag:hover {
+  background: var(--accent-hover);
+}
+.home-announcement-caret {
+  display: inline-flex;
+  transition: transform 0.18s ease;
+}
+/* chevron 图标本身指向右侧，展开时转成向下 */
+.home-announcement-caret.is-open {
+  transform: rotate(90deg);
+}
+.home-announcement-panel {
+  width: 100%;
+  min-width: 0;
 }
 .home-announcement .home-announcement-body {
-  flex: 1;
-  min-width: 0;
   /* 公告比正文更值得被读到，字号与颜色都比 .markdown 默认值再重一点 */
   font-size: 14px;
   line-height: 1.95;
@@ -3849,10 +3867,8 @@ html[data-theme='dark'] .skeleton {
   .home-intro:has(.home-announcement) {
     row-gap: 0;
   }
-  /* 窄屏下公告改为上下排列，标签不再和正文抢宽度 */
+  /* 窄屏下公告收一下内边距，减少首屏占用 */
   .home-announcement {
-    flex-direction: column;
-    gap: 14px;
     padding: 18px 20px;
     margin-bottom: 34px;
   }
