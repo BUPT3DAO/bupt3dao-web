@@ -2601,6 +2601,8 @@ html[data-theme='dark'] {
 /* 公告条自带下边距，横向 gap 之外不要再叠一层的行间距 */
 .home-intro:has(.home-announcement) {
   row-gap: 0;
+  /* 有公告时首屏已经往下压了一截，顶部留白收紧，公告别离 header 太远 */
+  padding-top: 20px;
 }
 .home-intro-main {
   min-width: 0;
