@@ -118,6 +118,9 @@ export async function proxyToApi(
   for (const name of DROPPED_RESPONSE_HEADERS) {
     responseHeaders.delete(name);
   }
+  // API 响应可能包含鉴权用户的私有数据，禁止浏览器或中间缓存持久化旧结果。
+  // /uploads 路由会在图片响应上显式覆盖为长期缓存。
+  responseHeaders.set('Cache-Control', 'no-store');
 
   if (upstream.status === 204 || upstream.status === 304) {
     return new NextResponse(null, { status: upstream.status, headers: responseHeaders });
