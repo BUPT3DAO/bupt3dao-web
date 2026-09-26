@@ -22,8 +22,8 @@ CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 
 **`web` —— lint + typecheck + build**（超时 15 分钟）
 
 1. `actions/checkout@v7`
-2. `pnpm/action-setup@v4`（版本取自根 `package.json` 的 `packageManager: pnpm@10.29.2`）
-3. `actions/setup-node@v4`，Node 版本读 `.nvmrc`（当前 `22`），并开启 pnpm store 缓存
+2. `pnpm/action-setup@v6`（版本取自根 `package.json` 的 `packageManager: pnpm@10.29.2`）
+3. `actions/setup-node@v7`，Node 版本读 `.nvmrc`（当前 `22`），并开启 pnpm store 缓存
 4. `pnpm install --frozen-lockfile` —— 锁文件与 `package.json` 不一致会直接失败
 5. `pnpm audit --prod --audit-level=low` —— 生产依赖存在 low 或更高等级公告时阻止检查通过
 6. `pnpm --filter web lint`（ESLint）
