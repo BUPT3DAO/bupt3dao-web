@@ -21,7 +21,7 @@ CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 
 
 **`web` —— lint + typecheck + build**（超时 15 分钟）
 
-1. `actions/checkout@v4`
+1. `actions/checkout@v7`
 2. `pnpm/action-setup@v4`（版本取自根 `package.json` 的 `packageManager: pnpm@10.29.2`）
 3. `actions/setup-node@v4`，Node 版本读 `.nvmrc`（当前 `22`），并开启 pnpm store 缓存
 4. `pnpm install --frozen-lockfile` —— 锁文件与 `package.json` 不一致会直接失败
@@ -32,8 +32,8 @@ CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 
 
 **`api` —— ruff + pytest**（超时 10 分钟，工作目录 `apps/api`）
 
-1. `actions/checkout@v4`
-2. `actions/setup-python@v5`，Python 3.12，缓存依赖 `apps/api/requirements-dev.txt`
+1. `actions/checkout@v7`
+2. `actions/setup-python@v7`，Python 3.12，缓存依赖 `apps/api/requirements-dev.txt`
 3. `pip install -r requirements-dev.txt`
 4. `pypa/gh-action-pip-audit@v1.1.0` 审计仓库路径 `apps/api/requirements.txt` 中的生产依赖
 5. `ruff check .`
