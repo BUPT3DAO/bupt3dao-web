@@ -88,8 +88,10 @@ jobs:
         include:
           - app: web
             dockerfile: apps/web/Dockerfile
+            image: bupt3dao/web:ci
           - app: api
             dockerfile: apps/api/Dockerfile
+            image: bupt3dao/api:ci
     steps:
       - uses: actions/checkout@v7
 
@@ -101,4 +103,43 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          tags: ${{ matrix.image }}
           push: false
+          load: true
+
+      - name: 启动并探测 API 容器
+        if: matrix.app == 'api'
+        run: |
+          set -euo pipefail
+          docker run -d --name bupt3dao-api-ci \
+            -e ENVIRONMENT=local \
+            -e JWT_SECRET=test-only-secret-for-container-smoke-test \
+            -e DATABASE_URL=sqlite:////data/app.db \
+            -p 127.0.0.1:8000:8000 \
+            bupt3dao/api:ci
+          trap 'docker rm -f bupt3dao-api-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/health | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs bupt3dao-api-ci
+          exit 1
+
+      - name: 启动并探测 Web 容器
+        if: matrix.app == 'web'
+        run: |
+          set -euo pipefail
+          docker run -d --name bupt3dao-web-ci \
+            -p 127.0.0.1:3000:3000 \
+            bupt3dao/web:ci
+          trap 'docker rm -f bupt3dao-web-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs bupt3dao-web-ci
+          exit 1
