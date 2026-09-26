@@ -102,7 +102,9 @@ def test_siwe_rejects_uri_chain_and_missing_expiration(
 
     for message in mutations:
         signature = Account.sign_message(encode_defunct(text=message), wallet.key).signature.hex()
-        response = client.post("/api/auth/verify", json={"message": message, "signature": signature})
+        response = client.post(
+            "/api/auth/verify", json={"message": message, "signature": signature}
+        )
         assert response.status_code == 401
 
 
