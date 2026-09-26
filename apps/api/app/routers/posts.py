@@ -79,9 +79,7 @@ def count_comments(db: Session, post_ids: list[int]) -> dict[int, int]:
     ).subquery()
 
     rows = db.execute(
-        select(renderable_comments.c.post_id, func.count()).group_by(
-            renderable_comments.c.post_id
-        )
+        select(renderable_comments.c.post_id, func.count()).group_by(renderable_comments.c.post_id)
     ).all()
     counts = dict.fromkeys(post_ids, 0)
     for post_id, total in rows:

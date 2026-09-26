@@ -9,7 +9,7 @@ from pathlib import Path
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="bupt3dao-test-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{(_TMP_DIR / 'test.db').as_posix()}"
 os.environ["UPLOAD_DIR"] = str(_TMP_DIR / "uploads")
-os.environ["JWT_SECRET"] = "test-only-secret"
+os.environ["JWT_SECRET"] = "test-only-secret-for-local-signing-tests"
 os.environ["SIWE_DOMAIN"] = "localhost:3000"
 os.environ["SIWE_URI"] = "http://localhost:3000"
 os.environ["ADMIN_ADDRESSES"] = "[]"
