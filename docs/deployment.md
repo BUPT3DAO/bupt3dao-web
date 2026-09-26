@@ -86,7 +86,7 @@ sudo chmod 600 /opt/bupt3dao/.env
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `JWT_SECRET` | **是** | 登录态 JWT 签名密钥。compose 里写成 `${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}`，缺失会直接启动失败。生成：`openssl rand -hex 32` |
+| `JWT_SECRET` | **是** | 登录态 JWT 签名密钥。compose 里写成 `${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}`，缺失会直接启动失败；API 也会在非本地环境拒绝少于 32 个非空白字符的密钥。生成：`openssl rand -hex 32` |
 | `PUBLIC_WEB_ORIGIN` | **是** | 对外站点地址，生产固定 `https://bupt3dao.club`。**`deploy.sh` 会断言这个值等于 `https://bupt3dao.club`**，写成别的会导致部署中途报错回滚 |
 | `SIWE_DOMAIN` | **是** | 用户签名时展示的域名，必须与用户实际访问的站点一致，生产为 `bupt3dao.club`（不带协议）。不一致会报「签名域名不匹配」 |
 | `BLUE_PORT` / `GREEN_PORT` | 建议 | 蓝绿两色绑定的本机端口，默认 `3001` / `3002` |

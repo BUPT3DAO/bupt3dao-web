@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from eth_utils import is_address
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,16 @@ class Settings(BaseSettings):
         if any(not is_address(address) for address in values):
             raise ValueError("ADMIN_ADDRESSES 必须是有效的钱包地址列表")
         return list(dict.fromkeys(address.lower() for address in values))
+
+    @model_validator(mode="after")
+    def validate_jwt_secret_for_environment(self) -> "Settings":
+        if self.environment.strip().lower() not in {"local", "development", "dev", "test"}:
+            if len(self.jwt_secret.strip()) < 32:
+                raise ValueError(
+                    "非本地环境的 JWT_SECRET 至少需要 32 个非空白字符；"
+                    "可用 `openssl rand -hex 32` 生成"
+                )
+        return self
 
     # 图片上传：头像 2MB；主页背景图与 markdown 内嵌图片 4MB
     upload_dir: Path = Path("./data/uploads")
