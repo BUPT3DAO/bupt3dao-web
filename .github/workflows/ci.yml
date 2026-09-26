@@ -94,10 +94,10 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: 配置 Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: 构建镜像（不推送）
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
