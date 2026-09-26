@@ -54,7 +54,7 @@ def test_upload_avatar(client: TestClient, auth: dict[str, str]) -> None:
     avatar_url = response.json()["avatar_url"]
     assert avatar_url is not None
     assert avatar_url.startswith("/uploads/")
-    assert re.fullmatch(r"[0-9a-f]{40}-\d+-[0-9a-f]{32}\.png", avatar_url.rsplit("/", 1)[-1])
+    assert re.fullmatch(r"0x[0-9a-f]{40}-\d+-[0-9a-f]{32}\.png", avatar_url.rsplit("/", 1)[-1])
     assert client.get(avatar_url).status_code == 200
 
 
