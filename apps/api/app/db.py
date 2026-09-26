@@ -32,6 +32,7 @@ if settings.database_url.startswith("sqlite") and settings.database_url != "sqli
         """让蓝绿切换期间的 SQLite 读请求不阻塞写事务。"""
         cursor = connection.cursor()
         try:
+            cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
         finally:

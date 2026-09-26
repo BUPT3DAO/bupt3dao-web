@@ -5,6 +5,7 @@ from app.db import engine
 
 def test_file_backed_sqlite_uses_write_ahead_logging() -> None:
     with engine.connect() as connection:
+        assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
         assert connection.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert connection.exec_driver_sql("PRAGMA synchronous").scalar() == 1
 
