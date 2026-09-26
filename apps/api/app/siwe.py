@@ -188,9 +188,11 @@ class NonceStore:
 
         nonce = secrets.token_hex(16)
         # 两个 API 实例同时首次发起时只允许一个 nonce 写入，另一个读取已存在的挑战。
-        statement = insert(LoginNonce).values(
-            address=address, nonce=nonce, expires_at=expires_at
-        ).on_conflict_do_nothing(index_elements=[LoginNonce.address])
+        statement = (
+            insert(LoginNonce)
+            .values(address=address, nonce=nonce, expires_at=expires_at)
+            .on_conflict_do_nothing(index_elements=[LoginNonce.address])
+        )
         db.execute(statement)
         db.commit()
         return db.scalar(select(LoginNonce.nonce).where(LoginNonce.address == address)) or nonce
