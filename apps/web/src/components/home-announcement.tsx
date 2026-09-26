@@ -1,31 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '@/components/icon';
 import { Markdown } from '@/components/markdown';
-import { api } from '@/lib/api';
 
 const BODY_ID = 'home-announcement-body';
 
 /** 首页首屏顶部的公告条：内容由管理员在后台维护，没配置时整块不渲染。 */
-export function HomeAnnouncement() {
-  const [content, setContent] = useState('');
+export function HomeAnnouncement({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .siteConfig()
-      .then((config) => {
-        if (!cancelled) setContent(config.announcement);
-      })
-      .catch(() => {
-        // 取不到配置就当作没有公告，首屏照常显示
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   if (!content.trim()) return null;
 

@@ -36,6 +36,18 @@ export function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('zh-CN');
 }
 
+/** 固定时区格式化日期，保证服务端 HTML 与浏览器水合结果一致。 */
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
 /** 个人链接没写名称时，用域名兜底展示。 */
 export function hostLabel(url: string): string {
   try {
