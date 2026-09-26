@@ -23,6 +23,35 @@ interface CommentThreadProps {
   initialHasMore: boolean;
 }
 
+function appendReply(comments: Comment[], parentId: number, reply: Comment): Comment[] {
+  return comments.map((comment) =>
+    comment.id === parentId
+      ? { ...comment, replies: [...comment.replies, reply] }
+      : { ...comment, replies: appendReply(comment.replies, parentId, reply) },
+  );
+}
+
+function countThread(comment: Comment): number {
+  return 1 + comment.replies.reduce((count, reply) => count + countThread(reply), 0);
+}
+
+function removeFromThread(
+  comments: Comment[],
+  commentId: number,
+): { comments: Comment[]; removed: number } {
+  let removed = 0;
+  const remaining = comments.flatMap((comment) => {
+    if (comment.id === commentId) {
+      removed += countThread(comment);
+      return [];
+    }
+    const nested = removeFromThread(comment.replies, commentId);
+    removed += nested.removed;
+    return nested.removed ? [{ ...comment, replies: nested.comments }] : [comment];
+  });
+  return { comments: remaining, removed };
+}
+
 export function CommentThread({
   postId,
   initial,
@@ -37,13 +66,6 @@ export function CommentThread({
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function refresh() {
-    const data = await api.listComments(postId);
-    setComments(data.items);
-    setTotal(data.total);
-    setHasMore(data.has_more);
-  }
 
   async function loadMore() {
     if (loadingMore) return;
@@ -69,8 +91,11 @@ export function CommentThread({
     setBusy(true);
     setError(null);
     try {
-      await api.createComment(postId, content, parentId);
-      await refresh();
+      const created = await api.createComment(postId, content, parentId);
+      setComments((current) =>
+        parentId ? appendReply(current, parentId, created) : [created, ...current],
+      );
+      setTotal((current) => current + 1);
       setReplyTo(null);
       return true;
     } catch (cause) {
@@ -87,7 +112,9 @@ export function CommentThread({
     setError(null);
     try {
       await api.deleteComment(postId, commentId);
-      await refresh();
+      const result = removeFromThread(comments, commentId);
+      setComments(result.comments);
+      setTotal((current) => Math.max(0, current - result.removed));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '删除失败，请稍后重试');
     } finally {
@@ -113,6 +140,7 @@ export function CommentThread({
             {canReply && (
               <button
                 className="text-link"
+                disabled={busy || loadingMore}
                 onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
               >
                 <Icon name="reply" size={13} />
@@ -122,7 +150,7 @@ export function CommentThread({
             {canDelete && (
               <button
                 className="text-link danger"
-                disabled={busy}
+                disabled={busy || loadingMore}
                 onClick={() => void remove(comment.id)}
               >
                 删除
@@ -134,7 +162,7 @@ export function CommentThread({
         {replyTo === comment.id && (
           <CommentForm
             autoFocus
-            submitting={busy}
+            submitting={busy || loadingMore}
             placeholder={`回复 ${comment.author.nickname.trim() || '这条评论'}…`}
             submitLabel="发布回复"
             onCancel={() => setReplyTo(null)}
@@ -162,7 +190,7 @@ export function CommentThread({
 
       {status === 'authenticated' ? (
         <CommentForm
-          submitting={busy}
+          submitting={busy || loadingMore}
           placeholder="写下你的评论，支持 Markdown 与插图…"
           submitLabel="发表评论"
           onSubmit={(text) => publish(text)}
