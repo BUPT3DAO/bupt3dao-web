@@ -1,7 +1,7 @@
 """帖子：贴吧式列表、主题帖详情与三级评论。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, union_all
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
@@ -58,24 +58,34 @@ def count_comments(db: Session, post_ids: list[int]) -> dict[int, int]:
         )
         .subquery()
     )
-    visible_nested_replies = (
-        select(Comment.post_id)
-        .where(
+    renderable_comments = union_all(
+        select(Comment.post_id).where(
+            Comment.post_id.in_(post_ids),
+            Comment.parent_id.is_(None),
+            VISIBLE_COMMENT,
+        ),
+        select(Comment.post_id).where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 2,
+            Comment.parent_id.in_(select(visible_roots.c.id)),
+            VISIBLE_COMMENT,
+        ),
+        select(Comment.post_id).where(
             Comment.post_id.in_(post_ids),
             Comment.depth == 3,
             Comment.parent_id.in_(select(visible_replies.c.id)),
             VISIBLE_COMMENT,
-        )
-        .subquery()
-    )
+        ),
+    ).subquery()
 
+    rows = db.execute(
+        select(renderable_comments.c.post_id, func.count()).group_by(
+            renderable_comments.c.post_id
+        )
+    ).all()
     counts = dict.fromkeys(post_ids, 0)
-    for comments in (visible_roots, visible_replies, visible_nested_replies):
-        rows = db.execute(
-            select(comments.c.post_id, func.count()).group_by(comments.c.post_id)
-        ).all()
-        for post_id, total in rows:
-            counts[post_id] += total
+    for post_id, total in rows:
+        counts[post_id] = total
     return counts
 
 
