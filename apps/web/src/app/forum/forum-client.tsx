@@ -23,6 +23,7 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
   const [topic, setTopic] = useState('全部');
   const [version, setVersion] = useState(0);
   const paging = useRef(false);
+  const pagingController = useRef<AbortController | null>(null);
   const initialLoad = useRef(true);
   const requestVersion = useRef(0);
   const filterKey = JSON.stringify([query, topic]);
@@ -31,6 +32,10 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
 
   useEffect(() => {
     requestVersion.current += 1;
+    pagingController.current?.abort();
+    pagingController.current = null;
+    paging.current = false;
+    setLoadingMore(false);
     if (initialLoad.current) {
       initialLoad.current = false;
       if (initialData) return;
@@ -60,6 +65,7 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
     return () => {
       cancelled = true;
       controller.abort();
+      pagingController.current?.abort();
     };
   }, [initialData, query, topic, version]);
 
@@ -67,6 +73,8 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
     if (paging.current) return;
     const requestedVersion = requestVersion.current;
     const requestedFilter = filterKey;
+    const controller = new AbortController();
+    pagingController.current = controller;
     paging.current = true;
     setLoadingMore(true);
     setError('');
@@ -76,6 +84,7 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
         topic: topic === '全部' ? '' : topic,
         offset: posts.length,
         limit: PAGE_SIZE,
+        signal: controller.signal,
       });
       if (
         requestVersion.current !== requestedVersion ||
@@ -89,15 +98,18 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
       ]);
       setTotal(data.total);
     } catch {
-      if (
+      if (!controller.signal.aborted &&
         requestVersion.current === requestedVersion &&
         filterKeyRef.current === requestedFilter
       ) {
         setError('加载更多失败，请重试。');
       }
     } finally {
-      paging.current = false;
-      setLoadingMore(false);
+      if (pagingController.current === controller) {
+        pagingController.current = null;
+        paging.current = false;
+        setLoadingMore(false);
+      }
     }
   }
 

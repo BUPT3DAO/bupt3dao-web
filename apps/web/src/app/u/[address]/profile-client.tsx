@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
@@ -29,6 +29,9 @@ export function ProfileClient({
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [copied, setCopied] = useState(false);
+  const pagingController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => pagingController.current?.abort(), [address]);
 
   useEffect(() => {
     if (!address) return;
@@ -84,17 +87,22 @@ export function ProfileClient({
 
   async function loadMore() {
     if (loadingMore) return;
+    const controller = new AbortController();
+    pagingController.current = controller;
     setLoadingMore(true);
     try {
-      const data = await api.listUserPosts(address, posts.length);
+      const data = await api.listUserPosts(address, posts.length, 20, controller.signal);
       setPosts((current) => [
         ...current,
         ...data.items.filter((p) => !current.some((item) => item.id === p.id)),
       ]);
     } catch {
-      setError('加载更多动态失败，请重试。');
+      if (!controller.signal.aborted) setError('加载更多动态失败，请重试。');
     } finally {
-      setLoadingMore(false);
+      if (pagingController.current === controller) {
+        pagingController.current = null;
+        if (!controller.signal.aborted) setLoadingMore(false);
+      }
     }
   }
 

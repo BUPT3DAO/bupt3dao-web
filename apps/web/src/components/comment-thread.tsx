@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Icon } from '@/components/icon';
 import { InsertImageButton } from '@/components/insert-image-button';
@@ -66,20 +66,27 @@ export function CommentThread({
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pagingController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => pagingController.current?.abort(), []);
 
   async function loadMore() {
     if (loadingMore) return;
+    const controller = new AbortController();
+    pagingController.current = controller;
     setLoadingMore(true);
     setError(null);
     try {
-      const data = await api.listComments(postId, comments.length, COMMENT_PAGE_SIZE);
+      const data = await api.listComments(postId, comments.length, COMMENT_PAGE_SIZE, controller.signal);
       setComments((current) => [...current, ...data.items]);
       setTotal(data.total);
       setHasMore(data.has_more);
     } catch (cause) {
+      if (controller.signal.aborted) return;
       setError(cause instanceof ApiError ? cause.message : '加载更多评论失败，请稍后重试');
     } finally {
-      setLoadingMore(false);
+      if (pagingController.current === controller) pagingController.current = null;
+      if (!controller.signal.aborted) setLoadingMore(false);
     }
   }
 
