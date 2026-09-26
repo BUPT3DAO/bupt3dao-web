@@ -1,5 +1,3 @@
-import { shortAddress } from '@/lib/format';
-
 interface AvatarProps {
   address: string;
   nickname?: string;
@@ -25,7 +23,9 @@ export function Avatar({ address, nickname, src, size = 40 }: AvatarProps) {
       <img
         className="avatar"
         src={src}
-        alt={nickname?.trim() || shortAddress(address)}
+        alt=""
+        loading="lazy"
+        decoding="async"
         style={style}
       />
     );
