@@ -2,6 +2,9 @@
 # 部署脚本只改写 upstream.caddy 然后 `caddy reload`，gateway 容器不重建、监听不断。
 bupt3dao.club {
 	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
 	import /etc/caddy/upstream.caddy
 }
 
