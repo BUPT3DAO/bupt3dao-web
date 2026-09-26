@@ -142,3 +142,11 @@ jobs:
           done
           docker logs bupt3dao-web-ci
           exit 1
+
+      - name: 校验 Caddy 配置
+        if: matrix.app == 'web'
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/docker/caddy:/etc/caddy:ro" \
+            caddy:2.10.2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
