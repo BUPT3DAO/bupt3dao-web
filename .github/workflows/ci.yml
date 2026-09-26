@@ -63,6 +63,11 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements-dev.txt
 
+      - name: 生产依赖安全审计
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: requirements.txt
+
       - name: Lint
         run: ruff check .
 

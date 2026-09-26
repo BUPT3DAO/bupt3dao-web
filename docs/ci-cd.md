@@ -6,7 +6,7 @@
 
 | 文件 | 名称 | 触发 | 作用 |
 | --- | --- | --- | --- |
-| [.github/workflows/ci.yml](../.github/workflows/ci.yml) | CI | `pull_request`、被其他 workflow 调用（`workflow_call`） | 前端 lint / 类型检查 / 构建，后端 ruff / pytest |
+| [.github/workflows/ci.yml](../.github/workflows/ci.yml) | CI | `pull_request`、被其他 workflow 调用（`workflow_call`） | 前端依赖审计 / lint / 类型检查 / 构建，后端生产依赖审计 / ruff / pytest |
 | [.github/workflows/release.yml](../.github/workflows/release.yml) | Deploy Main | push 到 `main`、手动 `workflow_dispatch` | 复跑 CI → 构建并推送镜像 → 部署到服务器 → 验证公网入口 |
 
 CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 `uses: ./.github/workflows/ci.yml` 复用，**检查不过就不会构建镜像，更不会部署**。
@@ -25,18 +25,20 @@ CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 
 2. `pnpm/action-setup@v4`（版本取自根 `package.json` 的 `packageManager: pnpm@10.29.2`）
 3. `actions/setup-node@v4`，Node 版本读 `.nvmrc`（当前 `22`），并开启 pnpm store 缓存
 4. `pnpm install --frozen-lockfile` —— 锁文件与 `package.json` 不一致会直接失败
-5. `pnpm --filter web lint`（ESLint）
-6. `pnpm --filter web typecheck`（`tsc --noEmit`）
-7. `pnpm --filter web build`
+5. `pnpm audit --prod --audit-level=low` —— 生产依赖存在 low 或更高等级公告时阻止检查通过
+6. `pnpm --filter web lint`（ESLint）
+7. `pnpm --filter web typecheck`（`tsc --noEmit`）
+8. `pnpm --filter web build`
 
 **`api` —— ruff + pytest**（超时 10 分钟，工作目录 `apps/api`）
 
 1. `actions/checkout@v4`
 2. `actions/setup-python@v5`，Python 3.12，缓存依赖 `apps/api/requirements-dev.txt`
 3. `pip install -r requirements-dev.txt`
-4. `ruff check .`
-5. `ruff format --check .` —— 格式不达标会失败，本地先跑 `pnpm format:api`
-6. `pytest`
+4. `pypa/gh-action-pip-audit@v1.1.0` 审计 `requirements.txt` 中的生产依赖
+5. `ruff check .`
+6. `ruff format --check .` —— 格式不达标会失败，本地先跑 `pnpm format:api`
+7. `pytest`
 
 ## CD（release.yml）
 
