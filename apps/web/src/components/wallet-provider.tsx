@@ -1,19 +1,21 @@
 'use client';
 
-import { useConnectModal } from '@rainbow-me/rainbowkit';
+import dynamic from 'next/dynamic';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
 
-import { ApiError, api, getToken, setToken } from '@/lib/api';
+import { api, getToken, setToken } from '@/lib/api';
 import type { UserPublic } from '@/types';
+
+const WalletRuntime = dynamic(() => import('@/components/wallet-runtime'), { ssr: false });
 
 export type WalletStatus = 'loading' | 'anonymous' | 'connecting' | 'authenticated';
 
@@ -30,28 +32,16 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
-function describeError(cause: unknown): string {
-  if (cause instanceof ApiError) return cause.message;
-  if (cause instanceof Error) {
-    const { code, name } = cause as { code?: unknown; name?: string };
-    // viem / wagmi 用 4001 或 UserRejectedRequestError 表示用户拒绝了请求
-    if (code === 4001 || name === 'UserRejectedRequestError') return '你在钱包里取消了签名';
-    return cause.message;
-  }
-  return '连接钱包失败，请重试';
-}
-
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WalletStatus>('loading');
   const [address, setAddress] = useState<string | null>(null);
   const [user, setUser] = useState<UserPublic | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 点了「连接钱包」之后等账户真正连上再签名，避免刷新页面就弹签名请求
-  const [awaitingAccount, setAwaitingAccount] = useState(false);
-
-  const { openConnectModal } = useConnectModal();
-  const { address: account, status: accountStatus } = useAccount();
-  const { signMessageAsync } = useSignMessage();
+  // 没有明确的连接意图时不挂载 Wagmi / RainbowKit，避免访客下载钱包 SDK。
+  const [walletRuntimeEnabled, setWalletRuntimeEnabled] = useState(false);
+  const [walletRequest, setWalletRequest] = useState(0);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   const logout = useCallback(() => {
     setToken(null);
@@ -81,6 +71,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setUser(me);
         setAddress(me.address);
         setStatus('authenticated');
+        // 已登录用户仍需监听扩展钱包换号，维持现有的账户一致性保护。
+        setWalletRuntimeEnabled(true);
       } catch {
         if (cancelled) return;
         setToken(null);
@@ -94,71 +86,61 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 在钱包里换了账户，原来的登录态不再可信
-  useEffect(() => {
-    if (!user || !account) return;
-    if (account.toLowerCase() !== user.address) logout();
-  }, [user, account, logout]);
-
-  const runSiwe = useCallback(
-    async (walletAddress: string) => {
-      setError(null);
-      setStatus('connecting');
-      try {
-        // 挑战消息仍由后端按 EIP-4361 生成，换钱包不影响登录流程
-        const challenge = await api.nonce(walletAddress);
-        const signature = await signMessageAsync({ message: challenge.message });
-        const session = await api.verify(challenge.message, signature);
-
-        setToken(session.access_token);
-        setUser(session.user);
-        setAddress(session.user.address);
-        setStatus('authenticated');
-      } catch (cause) {
-        setToken(null);
-        setUser(null);
-        setAddress(null);
-        setStatus('anonymous');
-        setError(describeError(cause));
-      }
-    },
-    [signMessageAsync],
-  );
-
-  // 钱包连上后再签名，这样外部只要调一次 connect()
-  useEffect(() => {
-    if (!awaitingAccount) return;
-    if (accountStatus !== 'connected' || !account) return;
-    setAwaitingAccount(false);
-    void runSiwe(account);
-  }, [awaitingAccount, accountStatus, account, runSiwe]);
-
   const connect = useCallback(async () => {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
       setError('当前为 HTTP 预览地址。绑定域名并启用 HTTPS 后，才能安全使用钱包登录。');
       return;
     }
     setError(null);
+    setWalletRuntimeEnabled(true);
+    setWalletRequest((request) => request + 1);
+  }, []);
 
-    // 已经连着钱包就直接签名；否则先弹钱包选择器
-    if (accountStatus === 'connected' && account) {
-      await runSiwe(account);
-      return;
-    }
-    if (!openConnectModal) {
-      setError('钱包选择器还没准备好，请刷新页面后重试');
-      return;
-    }
-    setAwaitingAccount(true);
-    openConnectModal();
-  }, [accountStatus, account, openConnectModal, runSiwe]);
+  const onAuthenticated = useCallback((token: string, nextUser: UserPublic) => {
+    setToken(token);
+    setUser(nextUser);
+    setAddress(nextUser.address);
+    setError(null);
+    setStatus('authenticated');
+  }, []);
+
+  const onAuthenticationError = useCallback((message: string) => {
+    setToken(null);
+    setUser(null);
+    setAddress(null);
+    setStatus('anonymous');
+    setError(message);
+  }, []);
+
+  const onConnecting = useCallback(() => setStatus('connecting'), []);
+
+  const onAccountChange = useCallback(
+    (account: string | null) => {
+      const currentUser = userRef.current;
+      if (currentUser && account && account.toLowerCase() !== currentUser.address) logout();
+    },
+    [logout],
+  );
 
   const value = useMemo<WalletContextValue>(
     () => ({ status, address, user, error, connect, logout, applyUser }),
     [status, address, user, error, connect, logout, applyUser],
   );
 
-  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+  return (
+    <WalletContext.Provider value={value}>
+      {children}
+      {walletRuntimeEnabled && (
+        <WalletRuntime
+          requestId={walletRequest}
+          onAuthenticated={onAuthenticated}
+          onAuthenticationError={onAuthenticationError}
+          onAccountChange={onAccountChange}
+          onConnecting={onConnecting}
+        />
+      )}
+    </WalletContext.Provider>
+  );
 }
 
 export function useWallet(): WalletContextValue {

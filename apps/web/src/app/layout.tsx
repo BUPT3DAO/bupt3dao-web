@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 
 import { Header } from '@/components/header';
 import { WalletProvider } from '@/components/wallet-provider';
-import { Web3Providers } from '@/components/web3-providers';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import './globals.css';
@@ -38,14 +37,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ThemeProvider>
-          <Web3Providers>
-            <WalletProvider>
-              <Header />
-              <main className="main-content" id="main-content">
-                {children}
-              </main>
-            </WalletProvider>
-          </Web3Providers>
+          <WalletProvider>
+            <Header />
+            <main className="main-content" id="main-content">
+              {children}
+            </main>
+          </WalletProvider>
         </ThemeProvider>
       </body>
     </html>

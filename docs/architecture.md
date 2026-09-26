@@ -60,14 +60,15 @@
 
 ```
 ThemeProvider           主题，写入 html[data-theme]
-└─ Web3Providers        WagmiProvider + QueryClientProvider + RainbowKitProvider
-   └─ WalletProvider    把 wagmi 的账户与签名能力包装成业务化的登录态
-      └─ Header + main
+└─ WalletProvider       轻量登录态与 API 用户信息
+   ├─ Header + main
+   └─ (按需) WalletRuntime
+      └─ Web3Providers  WagmiProvider + QueryClientProvider + RainbowKitProvider
 ```
 
 - **ThemeProvider** 在 `<head>` 里内联一段脚本，在首屏绘制前就把 `html[data-theme]` 设好，避免暗色模式闪白；偏好存在 `localStorage` 的 `bupt3dao.theme`。
-- **Web3Providers**（[web3-providers.tsx](../apps/web/src/components/web3-providers.tsx)）只负责钱包连接本身，不含业务逻辑。它通过 `MutationObserver` 监听 `html[data-theme]`，让 RainbowKit 弹窗跟随站点亮暗色。
-- **WalletProvider** 对外暴露 `useWallet()`，是业务层唯一的登录态来源。
+- **WalletProvider** 对外暴露 `useWallet()`，是业务层唯一的登录态来源；普通访客只加载这一层轻量上下文。
+- 用户点击连接钱包，或恢复已有登录态后，才动态加载 [wallet-runtime.tsx](../apps/web/src/components/wallet-runtime.tsx) 与 Web3 SDK。**Web3Providers**（[web3-providers.tsx](../apps/web/src/components/web3-providers.tsx)）只负责钱包连接本身，不含业务逻辑；它通过 `MutationObserver` 监听 `html[data-theme]`，让 RainbowKit 弹窗跟随站点亮暗色。
 
 ### 登录态与 API 客户端
 
@@ -196,11 +197,11 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 
 [wallet-provider.tsx](../apps/web/src/components/wallet-provider.tsx) 把「连接钱包」和「SIWE 签名」合成一次用户操作：
 
-1. 点「连接钱包」→ 弹 RainbowKit 选择器（`awaitingAccount` 置位）；
+1. 点「连接钱包」→ 按需加载钱包 SDK，然后弹 RainbowKit 选择器（`awaitingAccount` 置位）；
 2. wagmi 报告账户已连接后，才去调 `/auth/nonce` → 请求签名 → `/auth/verify`；
 3. 用 `awaitingAccount` 做闸门，是为了避免页面一刷新就弹签名请求。
 
-在钱包里切换账户会触发登出（本地 `user.address` 与 wagmi 当前账户不一致时清理登录态）。
+已有登录态会按需加载钱包 SDK，以继续监听账户变更；在钱包里切换账户会触发登出（本地 `user.address` 与 wagmi 当前账户不一致时清理登录态）。
 
 ## 需要留意的边界
 
