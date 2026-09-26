@@ -181,4 +181,5 @@ for image in web api; do
 done
 
 # These are pre-deployment snapshots, not a replacement for off-server backups.
-find "$ROOT/backups" -maxdepth 1 -type f -name '*.db' -mtime +14 -delete
+find "$ROOT/backups" -maxdepth 1 -type f \
+  \( -name '*.db' -o -name '*-uploads.tar.gz' \) -mtime +14 -delete

@@ -172,49 +172,72 @@ curl --resolve bupt3dao.club:443:127.0.0.1 -o /dev/null -w '%{http_code}\n' http
 
 ### 自动备份
 
-每次发布切换之前，`deploy.sh` 会从**正在运行的旧容器**里用 SQLite 在线备份 API 导出一致快照：
+每次发布切换之前，`deploy.sh` 会从**正在运行的旧容器**里用 SQLite 在线备份 API 导出数据库快照：
 
 ```
 /opt/bupt3dao/backups/<UTC时间>-<旧SHA>.db
 ```
 
-保留 14 天（`find ... -mtime +14 -delete`）。这是**发布前快照**，不是替代异地备份的方案。
+发布成功后，部署脚本会清理 `backups/` 中超过 14 天的 `.db` 与 `-uploads.tar.gz` 文件。这个自动快照**只包含数据库，不包含 `/data/uploads` 图片**；它是发布前数据库快照，不是完整备份，也不能替代异地备份。手工备份也会被同一清理规则删除，需在 14 天内复制到异地。
 
 ### 手工备份
 
 ```bash
 cd /opt/bupt3dao
+backup_dir=/opt/bupt3dao/backups
+backup_stamp=$(date -u +%Y%m%dT%H%M%SZ)
+sha=$(cat current-sha)
+active=$(cat active-color)
+mkdir -p "$backup_dir"
 TAG=sha-$(cat current-sha) docker compose --project-name bupt3dao-web \
   --env-file /opt/bupt3dao/.env \
   -f releases/$(cat current-sha)/docker-compose.yml \
   exec -T api-$(cat active-color) \
-  python -c "import sqlite3; src=sqlite3.connect('/data/app.db'); dst=sqlite3.connect('/backup.db'); src.backup(dst); dst.close(); src.close()"
+  python -c "import sqlite3; src=sqlite3.connect('/data/app.db'); dst=sqlite3.connect('/tmp/backup.db'); src.backup(dst); dst.close(); src.close()"
 
 # 用容器 ID 取文件，不依赖容器命名规则
-cid=$(TAG=sha-$(cat current-sha) docker compose --project-name bupt3dao-web \
+cid=$(TAG=sha-$sha docker compose --project-name bupt3dao-web \
   --env-file /opt/bupt3dao/.env \
-  -f releases/$(cat current-sha)/docker-compose.yml \
-  ps -q api-$(cat active-color))
-docker cp "$cid:/backup.db" "./app-$(date -u +%Y%m%dT%H%M%SZ).db"
+  -f "releases/$sha/docker-compose.yml" \
+  ps -q "api-$active")
+docker cp "$cid:/tmp/backup.db" "$backup_dir/$backup_stamp-$sha.db"
+
+# 同一备份时间戳另存用户上传图片；容器以非 root 身份运行，临时归档放在可写的 /tmp。
+docker exec "$cid" python -c "import tarfile; archive=tarfile.open('/tmp/uploads.tar.gz', 'w:gz'); archive.add('/data/uploads', arcname='uploads'); archive.close()"
+docker cp "$cid:/tmp/uploads.tar.gz" "$backup_dir/$backup_stamp-$sha-uploads.tar.gz"
+docker exec "$cid" python -c "from pathlib import Path; Path('/tmp/backup.db').unlink(missing_ok=True); Path('/tmp/uploads.tar.gz').unlink(missing_ok=True)"
 ```
 
 > 别直接 `cp` 正在被写入的 `.db` 文件——SQLite 有 WAL，拷贝出来可能不一致。要么用上面的 `backup()` API，要么先停 API 容器。
 
-上传的图片在同一个卷的 `/data/uploads`，备份数据库时记得一并打包。
+数据库文件与同时间戳的 `-uploads.tar.gz` 是一组。两步快照不是跨数据库和文件系统的原子事务；若要求严格配对，应在维护窗口暂停两色 API 写入后再执行，并把这对文件一起复制到异地。
 
 ### 恢复
 
 ```bash
-# 1. 停掉两色的 api（避免写入）
-docker stop <api 容器名>
+# 1. 停掉两色 API，避免恢复期间仍有读写
+cd /opt/bupt3dao
+sha=$(cat current-sha)
+active=$(cat active-color)
+TAG=sha-$sha docker compose --project-name bupt3dao-web \
+  --env-file /opt/bupt3dao/.env \
+  -f "releases/$sha/docker-compose.yml" stop api-blue api-green
 
-# 2. 把备份塞回卷里
-docker run --rm -v bupt3dao-web_api-data:/data -v /opt/bupt3dao/backups:/backup \
-  alpine cp /backup/<备份文件>.db /data/app.db
+# 2. 使用同一时间戳的一对文件恢复数据库与图片
+docker run --rm -v bupt3dao-web_api-data:/data -v /opt/bupt3dao/backups:/backup:ro \
+  alpine sh -ec 'cp /backup/<时间戳>-<SHA>.db /data/app.db.restore; \
+  rm -f /data/app.db-wal /data/app.db-shm; \
+  mv /data/app.db.restore /data/app.db; \
+  rm -rf /data/uploads; \
+  tar -xzf /backup/<时间戳>-<SHA>-uploads.tar.gz -C /data'
 
-# 3. 起回来
-docker start <api 容器名>
+# 3. 起回当前服务色的 API
+TAG=sha-$sha docker compose --project-name bupt3dao-web \
+  --env-file /opt/bupt3dao/.env \
+  -f "releases/$sha/docker-compose.yml" start "api-$active"
 ```
+
+> 恢复命令会替换卷内当前数据库和整个上传目录。执行前确认 API 已停止、备份文件来自同一组，并保留现有数据的额外副本；自动发布生成的 `.db` 文件没有配套图片归档，不能单独用于完整恢复。
 
 ## 排障
 
