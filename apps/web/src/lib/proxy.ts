@@ -10,6 +10,36 @@ const DROPPED_RESPONSE_HEADERS = [
   'content-length',
 ];
 
+const MAX_API_REQUEST_BYTES = 8 * 1024 * 1024;
+
+async function readBodyWithinLimit(request: NextRequest): Promise<ArrayBuffer | null> {
+  const declaredSize = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_API_REQUEST_BYTES) return null;
+  if (!request.body) return new ArrayBuffer(0);
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_API_REQUEST_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body.buffer;
+}
+
 /**
  * 把同源请求转发给后端 API。
  *
@@ -26,14 +56,20 @@ export async function proxyToApi(
 
   const headers = new Headers(request.headers);
   headers.delete('host');
+  // 重新构造请求体后由 fetch 生成准确长度，避免转发客户端伪造的 Content-Length。
+  headers.delete('content-length');
   // 让后端直接返回未压缩内容，避免 Next 二次编码
   headers.delete('accept-encoding');
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+  const body = hasBody ? await readBodyWithinLimit(request) : undefined;
+  if (body === null) {
+    return NextResponse.json({ detail: '请求内容不能超过 8 MB' }, { status: 413 });
+  }
   const upstream = await fetch(destination, {
     method: request.method,
     headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
+    body,
     redirect: 'manual',
     cache: 'no-store',
   });

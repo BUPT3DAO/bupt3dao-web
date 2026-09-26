@@ -174,7 +174,7 @@ Authorization: Bearer <token>
 | POST | `/api/users/me/banner` | 登录 | 上传主页背景图。上限 4 MB |
 | POST | `/api/users/me/images` | 登录 | 上传正文配图，返回 `{url}` 供写进 Markdown。上限 4 MB |
 
-上传约束：仅接受 **PNG / JPEG / WebP / GIF**（按 `Content-Type` 判定），文件落盘到 `UPLOAD_DIR`，返回同源地址 `/uploads/<文件名>`。头像与背景图替换时旧文件会被删除，避免目录无限增长。
+上传约束：仅接受 **PNG / JPEG / WebP / GIF**，并验证文件签名与请求中的 `Content-Type` 一致，文件落盘到 `UPLOAD_DIR`，返回同源地址 `/uploads/<文件名>`。通过 Next.js API 代理的请求体上限为 8 MB；头像与背景图替换时旧文件会被删除，避免目录无限增长。
 
 **`/uploads/*` 不需要鉴权**，任何人拿到文件名都能访问。
 

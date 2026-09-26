@@ -172,11 +172,12 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
   │                                     │
   │  POST /api/auth/verify {message, signature}
   │ ───────────────────────────────────▶│  1. 解析 EIP-4361 消息
-  │                                     │  2. 取出并作废 nonce（一次性）
-  │                                     │     —— 先作废，签名失败也无法重放
-  │                                     │  3. 校验 nonce / 域名 / 过期时间
+  │                                     │  2. 读取 nonce（暂不作废）
+  │                                     │  3. 校验 nonce / domain / URI / chain / 时间
   │                                     │  4. eth_account 恢复签名地址并比对
-  │                                     │  5. 地址首次出现则自动建号
+  │                                     │  5. 原子比对并作废 nonce
+  │                                     │     —— 无效签名不能烧掉挑战，并发重放仅一份通过
+  │                                     │  6. 地址首次出现则自动建号
   │  ◀───────────────────────────────── │  返回 {access_token, user}
   │  token 存 localStorage              │
 ```
@@ -184,7 +185,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 实现细节见 [siwe.py](../apps/api/app/siwe.py)：
 
 - 消息按 `SIWE_DOMAIN` / `SIWE_URI` / `SIWE_CHAIN_ID` / `SIWE_STATEMENT` 拼装，`Expiration Time` 为 `NONCE_TTL_SECONDS`（默认 300 秒）。
-- `verify_message` 会逐项比对 nonce、域名、过期时间，最后用 `Account.recover_message(encode_defunct(...))` 恢复地址；签名来自不可信输入，任何解析异常都统一按校验失败处理。
+- `verify_message` 会逐项比对 nonce、域名、URI、版本、链 ID、签发时间与过期时间，最后用 `Account.recover_message(encode_defunct(...))` 恢复地址；签名来自不可信输入，任何解析异常都统一按校验失败处理。校验成功后以原子比较方式消费 nonce，防止伪造签名作废挑战，也防止并发重放。
 - 只依赖 `eth-account` + `eth-utils`，没有引入 web3 全家桶。
 - JWT 为 HS256，载荷 `sub` = 小写钱包地址，有效期 `JWT_EXPIRE_MINUTES`（默认 7 天）。
 
