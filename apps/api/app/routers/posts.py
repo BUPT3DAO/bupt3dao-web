@@ -206,7 +206,7 @@ def delete_post(
     if post.author_id != user.id and not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的帖子")
 
-    # SQLite 默认不打开外键级联，帖子没了，挂在它上面的消息也要显式清掉
+    # 显式清理消息，确保 SQLite 与 PostgreSQL 下的业务语义一致并避免残留提醒
     db.execute(delete(Notification).where(Notification.post_id == post_id))
     db.delete(post)
     db.commit()
