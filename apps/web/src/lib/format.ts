@@ -33,7 +33,19 @@ export function relativeTime(iso: string): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
   if (seconds < 86400 * 7) return `${Math.floor(seconds / 86400)} 天前`;
-  return new Date(iso).toLocaleDateString('zh-CN');
+  return formatDate(iso);
+}
+
+/** 固定时区格式化日期，保证服务端 HTML 与浏览器水合结果一致。 */
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
 /** 个人链接没写名称时，用域名兜底展示。 */

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -19,6 +19,7 @@ def utcnow() -> datetime:
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("ix_users_created_at_id", "created_at", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # 钱包地址是唯一身份，统一小写存储
@@ -89,13 +90,17 @@ class User(Base):
 
 class Post(Base):
     __tablename__ = "posts"
+    __table_args__ = (
+        Index("ix_posts_topic_created_at_id", "topic", "created_at", "id"),
+        Index("ix_posts_author_created_at_id", "author_id", "created_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140), default="")
     # 板块名，空串表示未选择；用于论坛列表分页筛选
-    topic: Mapped[str] = mapped_column(String(20), default="", index=True)
+    topic: Mapped[str] = mapped_column(String(20), default="")
     content: Mapped[str] = mapped_column(Text)
-    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, index=True
     )
@@ -110,6 +115,9 @@ class Comment(Base):
     """帖子评论，最多三级：一级评论、二级回复、三级回复。"""
 
     __tablename__ = "comments"
+    __table_args__ = (
+        Index("ix_comments_post_parent_created_id", "post_id", "parent_id", "created_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), index=True)
@@ -140,6 +148,16 @@ class AdminUser(Base):
 
     address: Mapped[str] = mapped_column(String(42), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LoginNonce(Base):
+    """跨 API 实例共享的一次性登录挑战。"""
+
+    __tablename__ = "login_nonces"
+
+    address: Mapped[str] = mapped_column(String(42), primary_key=True)
+    nonce: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 # 新能力使用独立表，既有 SQLite 用户和帖子表无需破坏性迁移。
@@ -190,6 +208,15 @@ class Article(Base):
     """Markdown 文章。置顶文章按 sort_order 排序，未置顶按发布时间倒序。"""
 
     __tablename__ = "articles"
+    __table_args__ = (
+        Index(
+            "ix_articles_pinned_order_created_id",
+            "is_pinned",
+            "sort_order",
+            "created_at",
+            "id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140))
@@ -229,11 +256,15 @@ class SiteConfig(Base):
 class Notification(Base):
     """有人回复了你的帖子或评论时留下的站内消息。
 
-    user_id 是收件人，actor_id 是触发消息的人。SQLite 默认不打开外键级联，
-    因此帖子和评论被删除时，由路由显式清理对应的消息行。
+    user_id 是收件人，actor_id 是触发消息的人。应用会在 SQLite 连接上启用外键约束；
+    帖子和评论被删除时，路由仍显式清理消息行，保持 SQLite 与 PostgreSQL 行为一致。
     """
 
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_created_id", "user_id", "created_at", "id"),
+        Index("ix_notifications_user_is_read", "user_id", "is_read"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)

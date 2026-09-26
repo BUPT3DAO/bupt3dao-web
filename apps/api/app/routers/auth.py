@@ -21,14 +21,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/nonce", response_model=NonceResponse)
-def issue_nonce(payload: NonceRequest) -> NonceResponse:
+def issue_nonce(payload: NonceRequest, db: Session = Depends(get_db)) -> NonceResponse:
     """签发一次性 nonce，同时返回拼好的待签名消息。"""
     try:
         address = normalize_address(payload.address)
     except SiweError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
-    nonce = nonce_store.issue(address)
+    nonce = nonce_store.issue(db, address)
     return NonceResponse(nonce=nonce, message=build_message(address, nonce))
 
 
@@ -37,9 +37,14 @@ def verify_signature(payload: VerifyRequest, db: Session = Depends(get_db)) -> T
     """校验签名；地址首次出现时自动注册。"""
     try:
         address = normalize_address(parse_message(payload.message).address)
-        # 先取出 nonce（一次性作废），签名校验失败也不会被重放
-        expected_nonce = nonce_store.consume(address)
+        # 无效签名不应作废公开可见地址对应的登录挑战。
+        expected_nonce = nonce_store.peek(db, address)
         verify_message(payload.message, payload.signature, expected_nonce)
+        # 比对并作废必须原子完成，避免两份并发请求同时通过同一个 nonce。
+        if expected_nonce is None or not nonce_store.consume_if_matches(
+            db, address, expected_nonce
+        ):
+            raise SiweError("登录挑战已使用，请重新签名")
     except SiweError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
 

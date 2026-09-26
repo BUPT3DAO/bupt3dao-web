@@ -17,19 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: 安装 Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
+
+      - name: 生产依赖安全审计
+        run: pnpm audit --prod --audit-level=low
 
       - name: Lint
         run: pnpm --filter web lint
@@ -48,10 +51,10 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 安装 Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -59,6 +62,11 @@ jobs:
 
       - name: 安装依赖
         run: pip install -r requirements-dev.txt
+
+      - name: 生产依赖安全审计
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: apps/api/requirements.txt
 
       - name: Lint
         run: ruff check .
@@ -68,3 +76,77 @@ jobs:
 
       - name: 测试
         run: pytest
+
+  docker:
+    name: Docker / ${{ matrix.app }} image
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: web
+            dockerfile: apps/web/Dockerfile
+            image: bupt3dao/web:ci
+          - app: api
+            dockerfile: apps/api/Dockerfile
+            image: bupt3dao/api:ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 配置 Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: 构建镜像（不推送）
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          tags: ${{ matrix.image }}
+          push: false
+          load: true
+
+      - name: 启动并探测 API 容器
+        if: matrix.app == 'api'
+        run: |
+          set -euo pipefail
+          docker run -d --name bupt3dao-api-ci \
+            -e ENVIRONMENT=local \
+            -e JWT_SECRET=test-only-secret-for-container-smoke-test \
+            -p 127.0.0.1:8000:8000 \
+            bupt3dao/api:ci
+          trap 'docker rm -f bupt3dao-api-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/health | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs bupt3dao-api-ci
+          exit 1
+
+      - name: 启动并探测 Web 容器
+        if: matrix.app == 'web'
+        run: |
+          set -euo pipefail
+          docker run -d --name bupt3dao-web-ci \
+            -p 127.0.0.1:3000:3000 \
+            bupt3dao/web:ci
+          trap 'docker rm -f bupt3dao-web-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs bupt3dao-web-ci
+          exit 1
+
+      - name: 校验 Caddy 配置
+        if: matrix.app == 'web'
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/docker/caddy:/etc/caddy:ro" \
+            caddy:2.10.2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile

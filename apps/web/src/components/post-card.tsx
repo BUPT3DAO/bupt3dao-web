@@ -49,7 +49,7 @@ export function PostCard({ post, onDeleted }: PostCardProps) {
         {post.excerpt && <p className="post-row-excerpt">{post.excerpt}</p>}
         <div className="post-row-foot">
           <UserIdentity user={post.author} size={26} />
-          <time className="muted" dateTime={post.created_at}>
+          <time className="muted" dateTime={post.created_at} suppressHydrationWarning>
             {relativeTime(post.created_at)}
           </time>
           {error && (

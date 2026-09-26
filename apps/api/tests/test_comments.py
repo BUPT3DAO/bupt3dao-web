@@ -70,6 +70,26 @@ def test_three_level_thread_is_returned_as_tree(client, auth, sign_in):
     assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 3
 
 
+def test_comment_threads_are_paginated_without_splitting_replies(client, auth):
+    post = _create_post(client, auth)
+    _comment(client, auth, post["id"], "第一个主题")
+    _comment(client, auth, post["id"], "第二个主题")
+    _comment(client, auth, post["id"], "第三个主题")
+    first_root = _comment(client, auth, post["id"], "最新主题")
+    first_reply = _comment(client, auth, post["id"], "主题回复", first_root["id"])
+    _comment(client, auth, post["id"], "回复的回复", first_reply["id"])
+
+    first_page = client.get(f"/api/posts/{post['id']}/comments?limit=2").json()
+    assert first_page["total"] == 6
+    assert first_page["has_more"] is True
+    assert [comment["content"] for comment in first_page["items"]] == ["最新主题", "第三个主题"]
+    assert first_page["items"][0]["replies"][0]["replies"][0]["content"] == "回复的回复"
+
+    second_page = client.get(f"/api/posts/{post['id']}/comments?limit=2&offset=2").json()
+    assert second_page["has_more"] is False
+    assert [comment["content"] for comment in second_page["items"]] == ["第二个主题", "第一个主题"]
+
+
 def test_comment_permissions(client, auth, sign_in, admin_auth):
     post = _create_post(client, auth)
     root = _comment(client, auth, post["id"], "我的评论")
@@ -163,9 +183,32 @@ def test_banned_author_comments_are_hidden(client, auth, sign_in, admin_auth):
     listed = client.get(f"/api/posts/{post['id']}/comments").json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == root["id"]
-    # 父评论被隐藏时，它下面的回复一并隐藏
+    # 封禁作者的回复隐藏，但其父评论仍可见
     assert listed["items"][0]["replies"] == []
-    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 2
+    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 1
+    feed = client.get("/api/posts?limit=100").json()["items"]
+    assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 1
+
+
+def test_visible_reply_under_banned_root_is_not_counted(client, auth, sign_in, admin_auth):
+    troll = Account.create()
+    troll_headers = sign_in(troll)
+    post = _create_post(client, auth)
+    root = _comment(client, troll_headers, post["id"], "封禁后隐藏的主题")
+    _comment(client, auth, post["id"], "父评论不可见，因此也不展示", root["id"])
+
+    client.patch(
+        f"/api/admin/users/{troll.address.lower()}/ban",
+        headers=admin_auth,
+        json={"is_banned": True},
+    )
+
+    listed = client.get(f"/api/posts/{post['id']}/comments").json()
+    assert listed["items"] == []
+    assert listed["total"] == 0
+    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 0
+    feed = client.get("/api/posts?limit=100").json()["items"]
+    assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 0
 
 
 def test_banned_member_cannot_comment(client, auth, sign_in, admin_auth):

@@ -5,6 +5,7 @@ import io
 import pytest
 from eth_account import Account
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.config import settings
 
@@ -84,6 +85,23 @@ def test_admin_remove_qrcode(client: TestClient, admin_auth: dict[str, str]) -> 
     assert client.get(url).status_code == 404
     # 重复移除保持幂等
     assert client.delete("/api/admin/site/qrcode", headers=admin_auth).status_code == 204
+
+
+def test_remove_qrcode_keeps_file_if_database_commit_fails(
+    client: TestClient, admin_auth: dict[str, str], monkeypatch
+) -> None:
+    url = _upload(client, admin_auth).json()["group_qrcode_url"]
+
+    def fail_commit(_self):
+        raise RuntimeError("simulated commit failure")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(Session, "commit", fail_commit)
+        with pytest.raises(RuntimeError, match="simulated commit failure"):
+            client.delete("/api/admin/site/qrcode", headers=admin_auth)
+
+    assert client.get("/api/site").json()["group_qrcode_url"] == url
+    assert client.get(url).status_code == 200
 
 
 def test_update_announcement_requires_admin(client: TestClient, auth: dict[str, str]) -> None:

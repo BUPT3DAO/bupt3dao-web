@@ -1,6 +1,9 @@
 import io
+import re
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 # 1x1 透明 PNG
 _PNG_BYTES = bytes.fromhex(
@@ -53,13 +56,51 @@ def test_upload_avatar(client: TestClient, auth: dict[str, str]) -> None:
     avatar_url = response.json()["avatar_url"]
     assert avatar_url is not None
     assert avatar_url.startswith("/uploads/")
+    assert re.fullmatch(r"0x[0-9a-f]{40}-\d+-[0-9a-f]{32}\.png", avatar_url.rsplit("/", 1)[-1])
     assert client.get(avatar_url).status_code == 200
+
+
+def test_replacing_avatar_keeps_old_file_if_database_commit_fails(
+    client: TestClient, auth: dict[str, str], monkeypatch
+) -> None:
+    first = client.post(
+        "/api/users/me/avatar",
+        files={"file": ("avatar.png", io.BytesIO(_PNG_BYTES), "image/png")},
+        headers=auth,
+    )
+    old_url = first.json()["avatar_url"]
+
+    def fail_commit(_self):
+        raise RuntimeError("simulated commit failure")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(Session, "commit", fail_commit)
+        with pytest.raises(RuntimeError, match="simulated commit failure"):
+            client.post(
+                "/api/users/me/avatar",
+                files={"file": ("avatar.png", io.BytesIO(_PNG_BYTES), "image/png")},
+                headers=auth,
+            )
+
+    address = client.get("/api/auth/me", headers=auth).json()["address"]
+    assert client.get(f"/api/users/{address}").json()["avatar_url"] == old_url
+    assert client.get(old_url).status_code == 200
 
 
 def test_upload_avatar_rejects_non_image(client: TestClient, auth: dict[str, str]) -> None:
     response = client.post(
         "/api/users/me/avatar",
         files={"file": ("note.txt", io.BytesIO(b"hello"), "text/plain")},
+        headers=auth,
+    )
+
+    assert response.status_code == 400
+
+
+def test_upload_avatar_rejects_mime_spoofing(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.post(
+        "/api/users/me/avatar",
+        files={"file": ("avatar.png", io.BytesIO(b"<script>alert(1)</script>"), "image/png")},
         headers=auth,
     )
 

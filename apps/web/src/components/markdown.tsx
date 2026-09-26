@@ -65,7 +65,14 @@ function inlineNodes(tokens: Token[] | undefined, keyPrefix: string): ReactNode[
         return (
           // 正文里的图片来自外部站点，走原生 img 即可（不需要 Next 图片优化）
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={key} src={src} alt={node.text} loading="lazy" />
+          <img
+            key={key}
+            src={src}
+            alt={node.text}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+          />
         );
       }
       case 'html':

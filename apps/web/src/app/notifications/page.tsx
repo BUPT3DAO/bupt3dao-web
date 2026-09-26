@@ -23,17 +23,25 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const paging = useRef(false);
+  const pagingController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!address) {
+      pagingController.current?.abort();
+      paging.current = false;
+      setLoadingMore(false);
       setLoading(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    pagingController.current?.abort();
+    paging.current = false;
+    setLoadingMore(false);
     setLoading(true);
     setError('');
     api
-      .listNotifications(0, PAGE_SIZE)
+      .listNotifications(0, PAGE_SIZE, controller.signal)
       .then((data) => {
         if (cancelled) return;
         setItems(data.items);
@@ -49,16 +57,21 @@ export default function NotificationsPage() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
+      pagingController.current?.abort();
+      pagingController.current = null;
     };
   }, [address]);
 
   async function loadMore() {
     if (paging.current) return;
     paging.current = true;
+    const controller = new AbortController();
+    pagingController.current = controller;
     setLoadingMore(true);
     setError('');
     try {
-      const data = await api.listNotifications(items.length, PAGE_SIZE);
+      const data = await api.listNotifications(items.length, PAGE_SIZE, controller.signal);
       setItems((current) => [
         ...current,
         ...data.items.filter((item) => !current.some((row) => row.id === item.id)),
@@ -67,10 +80,13 @@ export default function NotificationsPage() {
       setUnread(data.unread);
       emitUnread(data.unread);
     } catch {
-      setError('加载更多失败，请重试。');
+      if (!controller.signal.aborted) setError('加载更多失败，请重试。');
     } finally {
-      paging.current = false;
-      setLoadingMore(false);
+      if (pagingController.current === controller) {
+        pagingController.current = null;
+        paging.current = false;
+        if (!controller.signal.aborted) setLoadingMore(false);
+      }
     }
   }
 

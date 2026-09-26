@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
-import { displayName, shortAddress, userMetaLine } from '@/lib/format';
+import { displayName, formatDate, shortAddress, userMetaLine } from '@/lib/format';
 import type { UserBrief } from '@/types';
 
 /** 悬停多久之后弹出名片，和推特的手感接近 */
@@ -108,7 +108,7 @@ function UserHoverCard({
         {joinedAt && (
           <p className="user-hover-joined">
             <Icon name="clock" size={13} />
-            {new Date(joinedAt).toLocaleDateString('zh-CN')} 加入
+            {formatDate(joinedAt)} 加入
           </p>
         )}
         <span className="user-hover-hint">

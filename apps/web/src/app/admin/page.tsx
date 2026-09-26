@@ -54,33 +54,39 @@ export default function AdminPage() {
   useEffect(() => {
     if (!user?.is_admin) return;
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     async function load() {
       try {
         if (tab === '站点设置') {
-          const data = await api.siteConfig();
+          const data = await api.siteConfig(controller.signal);
           if (!cancelled) {
             setQrcodeUrl(data.group_qrcode_url);
             setAnnouncement(data.announcement);
           }
         } else if (tab === '管理员') {
-          const data = await api.listAdmins();
+          const data = await api.listAdmins(controller.signal);
           if (!cancelled) setAdmins(data.items);
         } else if (tab === '帖子管理') {
-          const data = await api.adminPosts(query, page * 12);
+          const data = await api.adminPosts(query, page * 12, controller.signal);
           if (!cancelled) {
             setPosts(data.items);
             setTotal(data.total);
           }
         } else if (tab === '文章管理') {
-          const data = await api.adminArticles(query, page * 12);
+          const data = await api.adminArticles(query, page * 12, controller.signal);
           if (!cancelled) {
             setArticles(data.items);
             setTotal(data.total);
           }
         } else {
-          const data = await api.adminUsers(query, page * 12, tab === '校友墙管理');
+          const data = await api.adminUsers(
+            query,
+            page * 12,
+            tab === '校友墙管理',
+            controller.signal,
+          );
           if (!cancelled) {
             setUsers(data.items);
             setTotal(data.total);
@@ -95,6 +101,7 @@ export default function AdminPage() {
     void load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [user?.address, user?.is_admin, tab, query, page, version]);
 

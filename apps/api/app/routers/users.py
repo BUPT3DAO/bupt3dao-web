@@ -69,9 +69,14 @@ def upload_avatar(
     db: Session = Depends(get_db),
 ) -> UserPublic:
     url = save_image(file, user.address, settings.max_avatar_bytes, "头像")
-    remove_image(user.avatar_url)
+    previous_url = user.avatar_url
     user.avatar_url = url
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    remove_image(previous_url)
     return UserPublic.model_validate(user)
 
 
@@ -82,9 +87,14 @@ def upload_banner(
     db: Session = Depends(get_db),
 ) -> UserPublic:
     url = save_image(file, user.address, settings.max_image_bytes, "主页背景图")
-    remove_image(user.banner_url)
+    previous_url = user.banner_url
     user.banner_url = url
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    remove_image(previous_url)
     return UserPublic.model_validate(user)
 
 

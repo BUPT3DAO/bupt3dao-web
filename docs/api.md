@@ -36,7 +36,7 @@ Content-Type: application/json
 }
 ```
 
-`message` 是后端按 EIP-4361 拼好的原文，**必须原样签名**。nonce 一次性、有效期 300 秒（`NONCE_TTL_SECONDS`）。
+`message` 是后端按 EIP-4361 拼好的原文，**必须原样签名**。同一钱包在挑战未过期时重复申请会返回同一个 nonce，成功登录后该 nonce 只能消费一次；默认有效期 300 秒（`NONCE_TTL_SECONDS`）。
 
 **第 2 步：签名并换取 token**
 
@@ -97,7 +97,7 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/api/health` | 公开 | 健康检查，返回 `{"status":"ok","environment":"..."}` |
+| GET | `/api/health` | 公开 | 数据库可用时返回 `{"status":"ok"}`；数据库不可用时返回 503，供容器与部署探针识别故障。响应不暴露部署环境信息 |
 
 ## 站点配置 `site`
 
@@ -121,11 +121,11 @@ Authorization: Bearer <token>
 | POST | `/api/posts` | 登录 | 发帖。body：`{title, topic, content}` |
 | GET | `/api/posts/{post_id}` | 公开 | 帖子详情 |
 | DELETE | `/api/posts/{post_id}` | 登录 | 删帖。仅作者本人或管理员 |
-| GET | `/api/posts/{post_id}/comments` | 公开 | 评论列表，**已按层级组装成树**返回 |
+| GET | `/api/posts/{post_id}/comments` | 公开 | 评论树分页。`limit`（默认 20，最大 100）和 `offset` 针对一级评论主题分页；每个主题的回复完整返回。响应含全部可见评论的 `total` 和是否还有主题的 `has_more` |
 | POST | `/api/posts/{post_id}/comments` | 登录 | 发表评论 / 回复。body：`{content}` 或 `{content, parent_id}` |
 | DELETE | `/api/posts/{post_id}/comments/{comment_id}` | 登录 | 删除评论。仅作者本人或管理员。删一级评论会级联删掉其下回复 |
 
-评论最多三级（`MAX_COMMENT_DEPTH = 3`），超过会返回 400。
+评论最多三级（`MAX_COMMENT_DEPTH = 3`），超过会返回 409。帖子详情首屏展示最新的 20 个一级评论主题，可继续向下加载更早的主题；单个主题下的回复会完整展示。
 
 发评论会顺带投递站内消息：一级评论提醒帖子作者（`post_comment`），回复提醒被回复的人（`comment_reply`）。自己回复自己不产生消息，被封禁用户的动作也不会提醒任何人。
 
@@ -174,7 +174,7 @@ Authorization: Bearer <token>
 | POST | `/api/users/me/banner` | 登录 | 上传主页背景图。上限 4 MB |
 | POST | `/api/users/me/images` | 登录 | 上传正文配图，返回 `{url}` 供写进 Markdown。上限 4 MB |
 
-上传约束：仅接受 **PNG / JPEG / WebP / GIF**（按 `Content-Type` 判定），文件落盘到 `UPLOAD_DIR`，返回同源地址 `/uploads/<文件名>`。头像与背景图替换时旧文件会被删除，避免目录无限增长。
+上传约束：仅接受 **PNG / JPEG / WebP / GIF**，并验证文件签名与请求中的 `Content-Type` 一致，文件落盘到 `UPLOAD_DIR`，返回同源地址 `/uploads/<文件名>`。文件名含完整 UUID，避免并发上传覆盖；通过 Next.js API 代理的请求体上限为 8 MB。成功的图片响应由同源代理设置 7 天缓存，头像与背景图替换时旧文件会被删除，避免目录无限增长。
 
 **`/uploads/*` 不需要鉴权**，任何人拿到文件名都能访问。
 

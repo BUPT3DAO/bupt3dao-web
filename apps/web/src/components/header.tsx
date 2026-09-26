@@ -43,8 +43,9 @@ export function Header() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     api
-      .notificationSummary()
+      .notificationSummary(controller.signal)
       .then((data) => {
         if (!cancelled) setUnread(data.unread);
       })
@@ -52,6 +53,7 @@ export function Header() {
       .catch(() => undefined);
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [user, pathname]);
 

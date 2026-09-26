@@ -1,7 +1,7 @@
 """帖子：贴吧式列表、主题帖详情与三级评论。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, union_all
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
@@ -36,12 +36,55 @@ def find_post(db: Session, post_id: int) -> Post:
 def count_comments(db: Session, post_ids: list[int]) -> dict[int, int]:
     if not post_ids:
         return {}
+
+    # Match list_comments/build_tree: a reply is renderable only when every
+    # ancestor is visible. Counting raw rows leaks hidden content in feed badges.
+    visible_roots = (
+        select(Comment.id, Comment.post_id)
+        .where(
+            Comment.post_id.in_(post_ids),
+            Comment.parent_id.is_(None),
+            VISIBLE_COMMENT,
+        )
+        .subquery()
+    )
+    visible_replies = (
+        select(Comment.id, Comment.post_id)
+        .where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 2,
+            Comment.parent_id.in_(select(visible_roots.c.id)),
+            VISIBLE_COMMENT,
+        )
+        .subquery()
+    )
+    renderable_comments = union_all(
+        select(Comment.post_id).where(
+            Comment.post_id.in_(post_ids),
+            Comment.parent_id.is_(None),
+            VISIBLE_COMMENT,
+        ),
+        select(Comment.post_id).where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 2,
+            Comment.parent_id.in_(select(visible_roots.c.id)),
+            VISIBLE_COMMENT,
+        ),
+        select(Comment.post_id).where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 3,
+            Comment.parent_id.in_(select(visible_replies.c.id)),
+            VISIBLE_COMMENT,
+        ),
+    ).subquery()
+
     rows = db.execute(
-        select(Comment.post_id, func.count())
-        .where(Comment.post_id.in_(post_ids))
-        .group_by(Comment.post_id)
+        select(renderable_comments.c.post_id, func.count()).group_by(renderable_comments.c.post_id)
     ).all()
-    return {post_id: total for post_id, total in rows}
+    counts = dict.fromkeys(post_ids, 0)
+    for post_id, total in rows:
+        counts[post_id] = total
+    return counts
 
 
 def summary_of(post: Post, comment_count: int) -> PostSummary:
@@ -163,22 +206,77 @@ def delete_post(
     if post.author_id != user.id and not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "只能删除自己的帖子")
 
-    # SQLite 默认不打开外键级联，帖子没了，挂在它上面的消息也要显式清掉
+    # 显式清理消息，确保 SQLite 与 PostgreSQL 下的业务语义一致并避免残留提醒
     db.execute(delete(Notification).where(Notification.post_id == post_id))
     db.delete(post)
     db.commit()
 
 
 @router.get("/{post_id}/comments", response_model=CommentListOut)
-def list_comments(post_id: int, db: Session = Depends(get_db)) -> CommentListOut:
+def list_comments(
+    post_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> CommentListOut:
     find_post(db, post_id)
-    comments = db.scalars(
+    visible_roots = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.parent_id.is_(None),
+        VISIBLE_COMMENT,
+    )
+    root_total = db.scalar(select(func.count()).select_from(visible_roots.subquery())) or 0
+    visible_replies = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.depth == 2,
+        Comment.parent_id.in_(visible_roots),
+        VISIBLE_COMMENT,
+    )
+    reply_total = db.scalar(select(func.count()).select_from(visible_replies.subquery())) or 0
+    visible_nested_replies = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.depth == 3,
+        Comment.parent_id.in_(visible_replies),
+        VISIBLE_COMMENT,
+    )
+    nested_reply_total = (
+        db.scalar(select(func.count()).select_from(visible_nested_replies.subquery())) or 0
+    )
+    total = root_total + reply_total + nested_reply_total
+    root_query = select(Comment).where(
+        Comment.post_id == post_id,
+        Comment.parent_id.is_(None),
+        VISIBLE_COMMENT,
+    )
+    roots = db.scalars(
+        root_query.options(selectinload(Comment.author))
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+    # Paginate conversation roots, then fetch their descendants so each returned
+    # thread remains complete and replies are never orphaned by page boundaries.
+    root_ids = [comment.id for comment in roots]
+    replies = db.scalars(
         select(Comment)
-        .where(Comment.post_id == post_id, VISIBLE_COMMENT)
+        .where(Comment.parent_id.in_(root_ids), VISIBLE_COMMENT)
         .options(selectinload(Comment.author))
         .order_by(Comment.created_at.asc(), Comment.id.asc())
     ).all()
-    return CommentListOut(items=build_tree(comments), total=len(comments))
+    reply_ids = [comment.id for comment in replies]
+    nested_replies = db.scalars(
+        select(Comment)
+        .where(Comment.parent_id.in_(reply_ids), VISIBLE_COMMENT)
+        .options(selectinload(Comment.author))
+        .order_by(Comment.created_at.asc(), Comment.id.asc())
+    ).all()
+    comments = roots + replies + nested_replies
+    return CommentListOut(
+        items=build_tree(comments),
+        total=total,
+        has_more=offset + len(roots) < root_total,
+    )
 
 
 @router.post("/{post_id}/comments", response_model=CommentOut, status_code=status.HTTP_201_CREATED)

@@ -8,9 +8,13 @@ readonly ACTOR="${2:?Registry username required}"
 [[ "$SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "Invalid commit SHA" >&2; exit 1; }
 readonly RELEASE="$ROOT/releases/$SHA"
 readonly CADDY_DIR="$ROOT/caddy"
+readonly BACKUP_DIR="$ROOT/backups"
 test -f "$ROOT/.env"
 test -f "$RELEASE/docker-compose.yml"
 test -f "$RELEASE/caddy/Caddyfile"
+
+# 发布前快照不能依赖管理员是否提前手动建过目录。
+install -d -m 700 "$BACKUP_DIR"
 
 # Serialize all deployments, including manual retries outside Actions.
 exec 9>"$ROOT/.deploy.lock"
@@ -100,7 +104,7 @@ if [[ -n "$previous" ]]; then
   if [[ -n "$api_id" ]]; then
     docker exec "$api_id" python -c \
       "import sqlite3; src=sqlite3.connect('/data/app.db'); dst=sqlite3.connect('/data/predeploy.db'); src.backup(dst); dst.close(); src.close()"
-    docker cp "$api_id:/data/predeploy.db" "$ROOT/backups/$(date -u +%Y%m%dT%H%M%SZ)-$previous.db"
+    docker cp "$api_id:/data/predeploy.db" "$BACKUP_DIR/$(date -u +%Y%m%dT%H%M%SZ)-$previous.db"
   fi
 fi
 
@@ -181,4 +185,5 @@ for image in web api; do
 done
 
 # These are pre-deployment snapshots, not a replacement for off-server backups.
-find "$ROOT/backups" -maxdepth 1 -type f -name '*.db' -mtime +14 -delete
+find "$BACKUP_DIR" -maxdepth 1 -type f \
+  \( -name '*.db' -o -name '*-uploads.tar.gz' \) -mtime +14 -delete

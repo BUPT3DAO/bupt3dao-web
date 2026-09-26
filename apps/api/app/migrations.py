@@ -3,7 +3,7 @@
 新建的表交给 create_all；给已有表补新列用幂等的 ALTER TABLE，数据保持不动。
 """
 
-from sqlalchemy import Engine, func, inspect, select, text
+from sqlalchemy import Engine, Index, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.db import Base
@@ -54,5 +54,21 @@ def ensure_schema(engine: Engine) -> None:
     """幂等：可以安全地在每次启动时调用。"""
     Base.metadata.create_all(bind=engine)
     _add_missing_columns(engine)
+    # create_all 不会给已存在的表补建新增索引；逐个检查以支持旧库平滑升级。
+    for table_name in ("users", "posts", "comments", "articles", "notifications"):
+        table = Base.metadata.tables[table_name]
+        for index in table.indexes:
+            index.create(bind=engine, checkfirst=True)
+    # 帖子单列索引已被复合索引前缀覆盖；确认新索引存在后移除旧索引，避免重复写入开销。
+    for name, column in (
+        ("ix_posts_topic", Post.topic),
+        ("ix_posts_author_id", Post.author_id),
+    ):
+        indexes = [index for index in Post.__table__.indexes if index.name == name]
+        if not indexes:
+            indexes = [Index(name, column)]
+        for index in indexes:
+            index.drop(bind=engine, checkfirst=True)
+            Post.__table__.indexes.discard(index)
     with Session(engine) as db:
         _backfill(db)

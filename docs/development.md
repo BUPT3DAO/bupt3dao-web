@@ -138,6 +138,7 @@ Dependabot 会提 Next 16 的升级 PR（连 `eslint-config-next`）。这是 ma
 ### 其他约束
 
 - `@rainbow-me/rainbowkit` 与 wagmi 版本强耦合，升 RainbowKit 前先确认它支持的 wagmi 范围。
+- `pnpm-workspace.yaml` 的 overrides 当前用于将受影响的生产传递依赖锁到公告修复版本；每次升级钱包/Next 依赖后跑 `pnpm audit --prod --audit-level=low`，只有上游依赖链不再解析到受影响版本后，才移除对应 override。
 - `.github/dependabot.yml` 已把 minor / patch 归到 `npm-minor-patch`、`pip-minor-patch` 两个分组，减少 PR 噪音。weekly 跑，每组最多 5 个 PR。
 - `pnpm install --frozen-lockfile` 是 CI 的固定用法。**改了 `package.json` 一定要把 `pnpm-lock.yaml` 一起提交**，否则 CI 会失败。
 

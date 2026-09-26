@@ -1,27 +1,5 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-
 /** 首页首屏的社区群二维码卡片：二维码由管理员在后台维护，没配置时整块不显示。 */
-export function HomeGroupQrcode() {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .siteConfig()
-      .then((config) => {
-        if (!cancelled) setUrl(config.group_qrcode_url);
-      })
-      .catch(() => {
-        // 取不到配置就当作没配置，首屏不显示这张卡片
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+export function HomeGroupQrcode({ url }: { url: string | null }) {
   if (!url) return null;
 
   return (

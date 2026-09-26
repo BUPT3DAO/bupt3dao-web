@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { Icon } from '@/components/icon';
 import { InsertImageButton } from '@/components/insert-image-button';
@@ -14,25 +14,80 @@ import type { Comment } from '@/types';
 /** 一级评论 → 回复 → 回复的回复，到此为止 */
 export const MAX_COMMENT_DEPTH = 3;
 const CONTENT_MAX = 2000;
+const COMMENT_PAGE_SIZE = 20;
 
 interface CommentThreadProps {
   postId: number;
   initial: Comment[];
   initialTotal: number;
+  initialHasMore: boolean;
 }
 
-export function CommentThread({ postId, initial, initialTotal }: CommentThreadProps) {
+function appendReply(comments: Comment[], parentId: number, reply: Comment): Comment[] {
+  return comments.map((comment) =>
+    comment.id === parentId
+      ? { ...comment, replies: [...comment.replies, reply] }
+      : { ...comment, replies: appendReply(comment.replies, parentId, reply) },
+  );
+}
+
+function countThread(comment: Comment): number {
+  return 1 + comment.replies.reduce((count, reply) => count + countThread(reply), 0);
+}
+
+function removeFromThread(
+  comments: Comment[],
+  commentId: number,
+): { comments: Comment[]; removed: number } {
+  let removed = 0;
+  const remaining = comments.flatMap((comment) => {
+    if (comment.id === commentId) {
+      removed += countThread(comment);
+      return [];
+    }
+    const nested = removeFromThread(comment.replies, commentId);
+    removed += nested.removed;
+    return nested.removed ? [{ ...comment, replies: nested.comments }] : [comment];
+  });
+  return { comments: remaining, removed };
+}
+
+export function CommentThread({
+  postId,
+  initial,
+  initialTotal,
+  initialHasMore,
+}: CommentThreadProps) {
   const { user, status, connect } = useWallet();
   const [comments, setComments] = useState<Comment[]>(initial);
   const [total, setTotal] = useState(initialTotal);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pagingController = useRef<AbortController | null>(null);
 
-  async function refresh() {
-    const data = await api.listComments(postId);
-    setComments(data.items);
-    setTotal(data.total);
+  useEffect(() => () => pagingController.current?.abort(), []);
+
+  async function loadMore() {
+    if (loadingMore) return;
+    const controller = new AbortController();
+    pagingController.current = controller;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const data = await api.listComments(postId, comments.length, COMMENT_PAGE_SIZE, controller.signal);
+      setComments((current) => [...current, ...data.items]);
+      setTotal(data.total);
+      setHasMore(data.has_more);
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      setError(cause instanceof ApiError ? cause.message : '加载更多评论失败，请稍后重试');
+    } finally {
+      if (pagingController.current === controller) pagingController.current = null;
+      if (!controller.signal.aborted) setLoadingMore(false);
+    }
   }
 
   async function publish(content: string, parentId?: number) {
@@ -43,8 +98,11 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
     setBusy(true);
     setError(null);
     try {
-      await api.createComment(postId, content, parentId);
-      await refresh();
+      const created = await api.createComment(postId, content, parentId);
+      setComments((current) =>
+        parentId ? appendReply(current, parentId, created) : [created, ...current],
+      );
+      setTotal((current) => current + 1);
       setReplyTo(null);
       return true;
     } catch (cause) {
@@ -61,7 +119,9 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
     setError(null);
     try {
       await api.deleteComment(postId, commentId);
-      await refresh();
+      const result = removeFromThread(comments, commentId);
+      setComments(result.comments);
+      setTotal((current) => Math.max(0, current - result.removed));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '删除失败，请稍后重试');
     } finally {
@@ -80,13 +140,14 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
       >
         <div className="comment-head">
           <UserIdentity user={comment.author} size={30} placement="bottom" />
-          <time className="muted" dateTime={comment.created_at}>
+          <time className="muted" dateTime={comment.created_at} suppressHydrationWarning>
             {relativeTime(comment.created_at)}
           </time>
           <div className="comment-actions">
             {canReply && (
               <button
                 className="text-link"
+                disabled={busy || loadingMore}
                 onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
               >
                 <Icon name="reply" size={13} />
@@ -96,7 +157,7 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
             {canDelete && (
               <button
                 className="text-link danger"
-                disabled={busy}
+                disabled={busy || loadingMore}
                 onClick={() => void remove(comment.id)}
               >
                 删除
@@ -108,7 +169,7 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
         {replyTo === comment.id && (
           <CommentForm
             autoFocus
-            submitting={busy}
+            submitting={busy || loadingMore}
             placeholder={`回复 ${comment.author.nickname.trim() || '这条评论'}…`}
             submitLabel="发布回复"
             onCancel={() => setReplyTo(null)}
@@ -136,7 +197,7 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
 
       {status === 'authenticated' ? (
         <CommentForm
-          submitting={busy}
+          submitting={busy || loadingMore}
           placeholder="写下你的评论，支持 Markdown 与插图…"
           submitLabel="发表评论"
           onSubmit={(text) => publish(text)}
@@ -165,6 +226,15 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
         <p className="muted comment-empty">还没有人发言，来做第一个吧。</p>
       ) : (
         <div className="comment-list">{comments.map(renderComment)}</div>
+      )}
+      {hasMore && (
+        <button
+          className="btn btn-ghost load-more"
+          disabled={loadingMore || busy}
+          onClick={() => void loadMore()}
+        >
+          {loadingMore ? '加载中…' : '加载更多评论'}
+        </button>
       )}
     </section>
   );
@@ -215,6 +285,7 @@ function CommentForm({
       <textarea
         ref={inputRef}
         className="textarea"
+        aria-label={placeholder}
         value={value}
         maxLength={CONTENT_MAX}
         placeholder={placeholder}

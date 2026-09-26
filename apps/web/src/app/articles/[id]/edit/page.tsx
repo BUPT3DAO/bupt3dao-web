@@ -27,10 +27,11 @@ export default function EditArticlePage() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .getArticle(id)
+      .getArticle(id, controller.signal)
       .then((data) => {
         if (!cancelled) setArticle(data);
       })
@@ -44,6 +45,7 @@ export default function EditArticlePage() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [id]);
 

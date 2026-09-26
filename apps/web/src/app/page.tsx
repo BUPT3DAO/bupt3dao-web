@@ -2,12 +2,17 @@ import Link from 'next/link';
 import { HomeAnnouncement } from '@/components/home-announcement';
 import { HomeGroupQrcode } from '@/components/home-group-qrcode';
 import { Icon } from '@/components/icon';
+import { getServerApi } from '@/lib/server-api';
+import type { SiteConfig } from '@/types';
 
-export default function HomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  const siteConfig = await getServerApi<SiteConfig>('/site');
   return (
     <div className="home-page">
       <section className="home-intro">
-        <HomeAnnouncement />
+        <HomeAnnouncement content={siteConfig?.announcement ?? ''} />
         <div className="home-intro-main">
           <span className="eyebrow">BEIJING UNIVERSITY OF POSTS AND TELECOMMUNICATIONS</span>
           <span className="home-community-label">
@@ -31,7 +36,7 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-        <HomeGroupQrcode />
+        <HomeGroupQrcode url={siteConfig?.group_qrcode_url ?? null} />
         <div className="home-art" aria-hidden="true">
           <div className="home-ring ring-one" />
           <div className="home-ring ring-two" />
