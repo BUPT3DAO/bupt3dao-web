@@ -19,6 +19,7 @@ def utcnow() -> datetime:
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (Index("ix_users_created_at_id", "created_at", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # 钱包地址是唯一身份，统一小写存储
@@ -89,14 +90,17 @@ class User(Base):
 
 class Post(Base):
     __tablename__ = "posts"
-    __table_args__ = (Index("ix_posts_topic_created_at_id", "topic", "created_at", "id"),)
+    __table_args__ = (
+        Index("ix_posts_topic_created_at_id", "topic", "created_at", "id"),
+        Index("ix_posts_author_created_at_id", "author_id", "created_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140), default="")
     # 板块名，空串表示未选择；用于论坛列表分页筛选
-    topic: Mapped[str] = mapped_column(String(20), default="", index=True)
+    topic: Mapped[str] = mapped_column(String(20), default="")
     content: Mapped[str] = mapped_column(Text)
-    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, index=True
     )

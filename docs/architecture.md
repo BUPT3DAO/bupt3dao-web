@@ -134,11 +134,11 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 
 | 表 | 用途 | 关键约束 |
 | --- | --- | --- |
-| `users` | 用户 | `address` 唯一且索引；钱包地址即身份，统一小写存储 |
-| `posts` | 论坛帖子 | `topic` 建索引，供板块筛选；`author_id` 级联删除 |
-| `comments` | 帖子评论 | `parent_id` 自引用，`depth` 最多 3 级（`MAX_COMMENT_DEPTH`） |
+| `users` | 用户 | `address` 唯一且索引；`created_at + id` 复合索引支持后台用户分页排序；钱包地址即身份，统一小写存储 |
+| `posts` | 论坛帖子 | `topic + created_at + id` 支持板块时间线；`author_id + created_at + id` 支持个人主页帖子分页；`author_id` 级联删除 |
+| `comments` | 帖子评论 | `post_id + parent_id + created_at + id` 复合索引支持评论树读取；`parent_id` 自引用，`depth` 最多 3 级（`MAX_COMMENT_DEPTH`） |
 | `articles` | Markdown 文章 | `is_pinned` 建索引；置顶按 `sort_order`，其余按发布时间倒序 |
-| `notifications` | 站内消息 | `user_id` 收件人、`actor_id` 触发人、`post_id` + `comment_id` + `kind`；`is_read` 建索引 |
+| `notifications` | 站内消息 | `user_id + created_at + id` 支持消息时间线，`user_id + is_read` 支持未读计数；`actor_id` 触发人、`post_id` + `comment_id` + `kind` |
 | `profile_details` | 资料扩展 | 主键即 `user_id`；入学年份、学院、专业、学校、个人链接（JSON，最多 5 条） |
 | `user_moderation` | 封禁状态 | 主键即 `user_id` |
 | `featured_members` | 成员风采 | 主键即 `user_id`，带 `sort_order` |
@@ -157,7 +157,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 2. `_add_missing_columns` —— 对已有表用 `ALTER TABLE ADD COLUMN` 补新列，数据不动；
 3. `_backfill` —— 历史数据一次性修正（两位年份届别补成四位、早期无标题帖子补标题）。
 
-此外启动时会检查并补建帖子列表、评论线程、文章置顶顺序、通知时间线与未读状态的复合索引；`create_all` 不会为已有表自动补新增索引，因此由显式、可重复执行的检查负责旧库升级。
+此外启动时会检查并补建后台用户排序、帖子列表/作者时间线、评论线程、文章置顶顺序、通知时间线与未读状态的复合索引；帖子新增复合索引后会删除被其前缀覆盖的旧单列索引，减少重复存储与写入开销。`create_all` 不会为已有表自动补新增索引，因此由显式、可重复执行的检查负责旧库升级。
 
 数据模型稳定后应换成 Alembic，新增列时记得同步往 `_LIGHT_COLUMNS` 里登记。
 
