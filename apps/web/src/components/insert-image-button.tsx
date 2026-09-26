@@ -58,6 +58,8 @@ export function InsertImageButton({ onInserted, onError, disabled }: InsertImage
         ref={inputRef}
         className="visually-hidden"
         type="file"
+        aria-hidden="true"
+        tabIndex={-1}
         accept="image/png,image/jpeg,image/webp,image/gif"
         onChange={handleChange}
       />

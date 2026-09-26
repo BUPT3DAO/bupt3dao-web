@@ -215,6 +215,7 @@ function CommentForm({
       <textarea
         ref={inputRef}
         className="textarea"
+        aria-label={placeholder}
         value={value}
         maxLength={CONTENT_MAX}
         placeholder={placeholder}

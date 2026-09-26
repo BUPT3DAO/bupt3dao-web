@@ -172,6 +172,7 @@ export function PostComposer({ onPosted }: { onPosted: (post: Post) => void }) {
             id="post-content"
             ref={contentRef}
             className="textarea composer-content"
+            aria-label="帖子正文（支持 Markdown）"
             value={content}
             maxLength={CONTENT_MAX}
             placeholder={
