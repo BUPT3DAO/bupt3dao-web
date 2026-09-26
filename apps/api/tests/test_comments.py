@@ -183,8 +183,26 @@ def test_banned_author_comments_are_hidden(client, auth, sign_in, admin_auth):
     listed = client.get(f"/api/posts/{post['id']}/comments").json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == root["id"]
-    # 父评论被隐藏时，它下面的回复一并隐藏
+    # 封禁作者的回复隐藏，但其父评论仍可见
     assert listed["items"][0]["replies"] == []
+
+
+def test_visible_reply_under_banned_root_is_not_counted(client, auth, sign_in, admin_auth):
+    troll = Account.create()
+    troll_headers = sign_in(troll)
+    post = _create_post(client, auth)
+    root = _comment(client, troll_headers, post["id"], "封禁后隐藏的主题")
+    _comment(client, auth, post["id"], "父评论不可见，因此也不展示", root["id"])
+
+    client.patch(
+        f"/api/admin/users/{troll.address.lower()}/ban",
+        headers=admin_auth,
+        json={"is_banned": True},
+    )
+
+    listed = client.get(f"/api/posts/{post['id']}/comments").json()
+    assert listed["items"] == []
+    assert listed["total"] == 0
     assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 2
 
 

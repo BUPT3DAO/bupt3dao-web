@@ -177,14 +177,34 @@ def list_comments(
     db: Session = Depends(get_db),
 ) -> CommentListOut:
     find_post(db, post_id)
-    visible = select(Comment).where(Comment.post_id == post_id, VISIBLE_COMMENT)
-    total = db.scalar(select(func.count()).select_from(visible.subquery())) or 0
+    visible_roots = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.parent_id.is_(None),
+        VISIBLE_COMMENT,
+    )
+    root_total = db.scalar(select(func.count()).select_from(visible_roots.subquery())) or 0
+    visible_replies = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.depth == 2,
+        Comment.parent_id.in_(visible_roots),
+        VISIBLE_COMMENT,
+    )
+    reply_total = db.scalar(select(func.count()).select_from(visible_replies.subquery())) or 0
+    visible_nested_replies = select(Comment.id).where(
+        Comment.post_id == post_id,
+        Comment.depth == 3,
+        Comment.parent_id.in_(visible_replies),
+        VISIBLE_COMMENT,
+    )
+    nested_reply_total = (
+        db.scalar(select(func.count()).select_from(visible_nested_replies.subquery())) or 0
+    )
+    total = root_total + reply_total + nested_reply_total
     root_query = select(Comment).where(
         Comment.post_id == post_id,
         Comment.parent_id.is_(None),
         VISIBLE_COMMENT,
     )
-    root_total = db.scalar(select(func.count()).select_from(root_query.subquery())) or 0
     roots = db.scalars(
         root_query.options(selectinload(Comment.author))
         .order_by(Comment.created_at.desc(), Comment.id.desc())
