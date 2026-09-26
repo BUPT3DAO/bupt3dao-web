@@ -122,6 +122,15 @@ def test_nonce_store_atomically_consumes_once() -> None:
         assert store.peek(db, "0xabc") is None
 
 
+def test_nonce_store_reuses_an_unexpired_challenge() -> None:
+    store = NonceStore(ttl_seconds=30)
+    with SessionLocal() as db:
+        first = store.issue(db, "0xaaa")
+        second = store.issue(db, "0xaaa")
+
+    assert second == first
+
+
 def test_nonce_store_allows_only_one_concurrent_consumer() -> None:
     store = NonceStore(ttl_seconds=30)
     with SessionLocal() as db:

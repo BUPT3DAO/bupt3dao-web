@@ -171,7 +171,6 @@ class NonceStore:
     def issue(self, db: Session, address: str) -> str:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(seconds=self._ttl)
-        nonce = secrets.token_hex(16)
         dialect = db.bind.dialect.name if db.bind is not None else ""
         if dialect == "sqlite":
             insert = sqlite_insert
@@ -180,20 +179,21 @@ class NonceStore:
         else:
             raise RuntimeError(f"登录 nonce 存储不支持数据库方言：{dialect}")
 
-        # 清理过期行并按地址原子替换挑战；蓝绿两套容器使用同一数据库。
+        # 清理过期行；未过期的挑战继续复用，避免陌生请求覆盖用户正在签名的挑战。
         db.execute(delete(LoginNonce).where(LoginNonce.expires_at <= now))
+        existing = db.scalar(select(LoginNonce).where(LoginNonce.address == address))
+        if existing is not None:
+            db.commit()
+            return existing.nonce
+
+        nonce = secrets.token_hex(16)
+        # 两个 API 实例同时首次发起时只允许一个 nonce 写入，另一个读取已存在的挑战。
         statement = insert(LoginNonce).values(
-            address=address,
-            nonce=nonce,
-            expires_at=expires_at,
-        )
-        statement = statement.on_conflict_do_update(
-            index_elements=[LoginNonce.address],
-            set_={"nonce": nonce, "expires_at": expires_at},
-        )
+            address=address, nonce=nonce, expires_at=expires_at
+        ).on_conflict_do_nothing(index_elements=[LoginNonce.address])
         db.execute(statement)
         db.commit()
-        return nonce
+        return db.scalar(select(LoginNonce.nonce).where(LoginNonce.address == address)) or nonce
 
     def peek(self, db: Session, address: str) -> str | None:
         """读取 nonce 但不作废；只有完整验签通过后才允许消费。"""
