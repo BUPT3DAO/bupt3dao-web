@@ -190,7 +190,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 
 - 消息按 `SIWE_DOMAIN` / `SIWE_URI` / `SIWE_CHAIN_ID` / `SIWE_STATEMENT` 拼装，`Expiration Time` 为 `NONCE_TTL_SECONDS`（默认 300 秒）。
 - `verify_message` 会逐项比对 nonce、域名、URI、版本、链 ID、签发时间与过期时间，最后用 `Account.recover_message(encode_defunct(...))` 恢复地址；签名来自不可信输入，任何解析异常都统一按校验失败处理。校验成功后以原子比较方式消费 nonce，防止伪造签名作废挑战，也防止并发重放。
-- 登录挑战保存在数据库 `login_nonces` 表中；SQLite 与 PostgreSQL 都通过冲突更新签发、条件删除消费，因此蓝绿切换、进程重启或多 API 实例不会丢失/重复接受挑战。
+- 登录挑战保存在数据库 `login_nonces` 表中；未过期的挑战会复用，首次并发申请通过地址唯一约束只保留一个挑战，消费则使用条件删除。因此蓝绿切换、进程重启或多 API 实例不会丢失/重复接受挑战。
 - 只依赖 `eth-account` + `eth-utils`，没有引入 web3 全家桶。
 - JWT 为 HS256，载荷 `sub` = 小写钱包地址，有效期 `JWT_EXPIRE_MINUTES`（默认 7 天）。
 
@@ -208,7 +208,7 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 
 这些是当前架构的已知限制，扩展前请先评估：
 
-- **SQLite 单写**。蓝绿切换时两色容器会在几秒内同时打开同一个库，这是可接受的；但不要指望它支撑高并发写。
+- **SQLite 仍是单写**。应用对文件库启用 WAL、正常同步级别与外键约束，蓝绿切换期间读写互相阻塞更少且引用完整性更可靠；它仍不适合作为高并发写入场景的长期数据库，规模增长后应迁移 PostgreSQL。
 - **上传文件与数据库同在 `api-data` 卷**（`/data/app.db` + `/data/uploads`），一起备份才是一致快照。
 - **`/uploads` 由 FastAPI 的 `StaticFiles` 托管**，Next 侧只做同源转发，不做鉴权——即上传后的图片/头像是公开可读的。
 - **公开页面服务端渲染依赖 API 可用性**；服务端公开 GET 数据按 URL 缓存 30 秒，降低重复请求并把内容陈旧窗口限制在 30 秒。冷缓存时 API 不可用仍会降级到客户端请求；非公开页面及带鉴权请求不进入这层缓存。

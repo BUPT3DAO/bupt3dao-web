@@ -36,7 +36,7 @@ Content-Type: application/json
 }
 ```
 
-`message` 是后端按 EIP-4361 拼好的原文，**必须原样签名**。nonce 一次性、有效期 300 秒（`NONCE_TTL_SECONDS`）。
+`message` 是后端按 EIP-4361 拼好的原文，**必须原样签名**。同一钱包在挑战未过期时重复申请会返回同一个 nonce，成功登录后该 nonce 只能消费一次；默认有效期 300 秒（`NONCE_TTL_SECONDS`）。
 
 **第 2 步：签名并换取 token**
 

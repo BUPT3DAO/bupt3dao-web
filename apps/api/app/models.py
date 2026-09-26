@@ -256,8 +256,8 @@ class SiteConfig(Base):
 class Notification(Base):
     """有人回复了你的帖子或评论时留下的站内消息。
 
-    user_id 是收件人，actor_id 是触发消息的人。SQLite 默认不打开外键级联，
-    因此帖子和评论被删除时，由路由显式清理对应的消息行。
+    user_id 是收件人，actor_id 是触发消息的人。应用会在 SQLite 连接上启用外键约束；
+    帖子和评论被删除时，路由仍显式清理消息行，保持 SQLite 与 PostgreSQL 行为一致。
     """
 
     __tablename__ = "notifications"
