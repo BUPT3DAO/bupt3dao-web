@@ -568,7 +568,7 @@ h3 {
   font-size: 8px;
   line-height: 1.9;
   letter-spacing: 1px;
-  color: #817d8c;
+  color: var(--muted);
   text-align: right;
 }
 .edition-label b {
@@ -1058,7 +1058,7 @@ textarea::placeholder {
   font-size: 6px;
   letter-spacing: 1.4px;
   margin-bottom: 9px;
-  color: #9e9aaa;
+  color: var(--muted);
 }
 .empty-state h3 {
   font-size: 15px;
@@ -1066,7 +1066,7 @@ textarea::placeholder {
 }
 .empty-state p {
   font-size: 11px;
-  color: #9e9ba5;
+  color: var(--muted);
   margin-top: 8px;
 }
 .empty-state .text-link,
@@ -1474,7 +1474,7 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #8f8c99;
+  color: var(--muted);
   font-size: 11px;
   margin-bottom: 24px;
 }
@@ -1894,7 +1894,7 @@ textarea::placeholder {
   background: #fffcf4;
   border-radius: 10px;
   font-size: 12px;
-  color: #99804d;
+  color: #725b2e;
 }
 .inline-notice .text-link {
   margin-left: auto;
