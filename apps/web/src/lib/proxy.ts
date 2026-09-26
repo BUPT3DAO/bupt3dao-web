@@ -106,6 +106,7 @@ export async function proxyToApi(
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
     });
   } catch (error) {
+    if (request.signal.aborted) return new NextResponse(null, { status: 499 });
     const timedOut = error instanceof Error && error.name === 'TimeoutError';
     return NextResponse.json(
       { detail: timedOut ? '后端响应超时，请稍后重试' : '后端服务暂不可用，请稍后重试' },
