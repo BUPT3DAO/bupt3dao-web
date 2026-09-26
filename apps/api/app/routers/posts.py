@@ -36,12 +36,47 @@ def find_post(db: Session, post_id: int) -> Post:
 def count_comments(db: Session, post_ids: list[int]) -> dict[int, int]:
     if not post_ids:
         return {}
-    rows = db.execute(
-        select(Comment.post_id, func.count())
-        .where(Comment.post_id.in_(post_ids))
-        .group_by(Comment.post_id)
-    ).all()
-    return {post_id: total for post_id, total in rows}
+
+    # Match list_comments/build_tree: a reply is renderable only when every
+    # ancestor is visible. Counting raw rows leaks hidden content in feed badges.
+    visible_roots = (
+        select(Comment.id, Comment.post_id)
+        .where(
+            Comment.post_id.in_(post_ids),
+            Comment.parent_id.is_(None),
+            VISIBLE_COMMENT,
+        )
+        .subquery()
+    )
+    visible_replies = (
+        select(Comment.id, Comment.post_id)
+        .where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 2,
+            Comment.parent_id.in_(select(visible_roots.c.id)),
+            VISIBLE_COMMENT,
+        )
+        .subquery()
+    )
+    visible_nested_replies = (
+        select(Comment.post_id)
+        .where(
+            Comment.post_id.in_(post_ids),
+            Comment.depth == 3,
+            Comment.parent_id.in_(select(visible_replies.c.id)),
+            VISIBLE_COMMENT,
+        )
+        .subquery()
+    )
+
+    counts = dict.fromkeys(post_ids, 0)
+    for comments in (visible_roots, visible_replies, visible_nested_replies):
+        rows = db.execute(
+            select(comments.c.post_id, func.count()).group_by(comments.c.post_id)
+        ).all()
+        for post_id, total in rows:
+            counts[post_id] += total
+    return counts
 
 
 def summary_of(post: Post, comment_count: int) -> PostSummary:

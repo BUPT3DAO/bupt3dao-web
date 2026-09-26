@@ -185,6 +185,9 @@ def test_banned_author_comments_are_hidden(client, auth, sign_in, admin_auth):
     assert listed["items"][0]["id"] == root["id"]
     # 封禁作者的回复隐藏，但其父评论仍可见
     assert listed["items"][0]["replies"] == []
+    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 1
+    feed = client.get("/api/posts?limit=100").json()["items"]
+    assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 1
 
 
 def test_visible_reply_under_banned_root_is_not_counted(client, auth, sign_in, admin_auth):
@@ -203,7 +206,9 @@ def test_visible_reply_under_banned_root_is_not_counted(client, auth, sign_in, a
     listed = client.get(f"/api/posts/{post['id']}/comments").json()
     assert listed["items"] == []
     assert listed["total"] == 0
-    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 2
+    assert client.get(f"/api/posts/{post['id']}").json()["comment_count"] == 0
+    feed = client.get("/api/posts?limit=100").json()["items"]
+    assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 0
 
 
 def test_banned_member_cannot_comment(client, auth, sign_in, admin_auth):
