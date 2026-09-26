@@ -6,6 +6,7 @@ from eth_account.signers.local import LocalAccount
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.db import SessionLocal
 from app.siwe import NonceStore
 
 
@@ -110,23 +111,49 @@ def test_siwe_rejects_uri_chain_and_missing_expiration(
 
 def test_nonce_store_atomically_consumes_once() -> None:
     store = NonceStore(ttl_seconds=30)
-    nonce = store.issue("0xabc")
+    with SessionLocal() as db:
+        nonce = store.issue(db, "0xabc")
 
-    assert store.peek("0xabc") == nonce
-    assert store.consume_if_matches("0xabc", "wrong") is False
-    assert store.consume_if_matches("0xabc", nonce) is True
-    assert store.consume_if_matches("0xabc", nonce) is False
-    assert store.peek("0xabc") is None
+    with SessionLocal() as db:
+        assert store.peek(db, "0xabc") == nonce
+        assert store.consume_if_matches(db, "0xabc", "wrong") is False
+        assert store.consume_if_matches(db, "0xabc", nonce) is True
+        assert store.consume_if_matches(db, "0xabc", nonce) is False
+        assert store.peek(db, "0xabc") is None
 
 
 def test_nonce_store_allows_only_one_concurrent_consumer() -> None:
     store = NonceStore(ttl_seconds=30)
-    nonce = store.issue("0xabc")
+    with SessionLocal() as db:
+        nonce = store.issue(db, "0xdef")
+
+    def consume_once(_: int) -> bool:
+        with SessionLocal() as db:
+            return store.consume_if_matches(db, "0xdef", nonce)
 
     with ThreadPoolExecutor(max_workers=12) as pool:
-        results = list(pool.map(lambda _: store.consume_if_matches("0xabc", nonce), range(48)))
+        results = list(pool.map(consume_once, range(48)))
 
     assert results.count(True) == 1
+
+
+def test_nonce_store_is_shared_between_database_sessions() -> None:
+    store = NonceStore(ttl_seconds=30)
+    with SessionLocal() as issuer:
+        nonce = store.issue(issuer, "0x123")
+    with SessionLocal() as verifier:
+        assert store.peek(verifier, "0x123") == nonce
+        assert store.consume_if_matches(verifier, "0x123", nonce) is True
+    with SessionLocal() as another_instance:
+        assert store.peek(another_instance, "0x123") is None
+
+
+def test_nonce_store_rejects_expired_challenge() -> None:
+    store = NonceStore(ttl_seconds=-1)
+    with SessionLocal() as db:
+        nonce = store.issue(db, "0x456")
+        assert store.peek(db, "0x456") is None
+        assert store.consume_if_matches(db, "0x456", nonce) is False
 
 
 def test_verify_request_rejects_oversized_fields(client: TestClient) -> None:

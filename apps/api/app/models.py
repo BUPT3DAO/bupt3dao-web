@@ -142,6 +142,16 @@ class AdminUser(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class LoginNonce(Base):
+    """跨 API 实例共享的一次性登录挑战。"""
+
+    __tablename__ = "login_nonces"
+
+    address: Mapped[str] = mapped_column(String(42), primary_key=True)
+    nonce: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 # 新能力使用独立表，既有 SQLite 用户和帖子表无需破坏性迁移。
 class UserModeration(Base):
     __tablename__ = "user_moderation"

@@ -5,16 +5,19 @@
 """
 
 import secrets
-import threading
-import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from eth_utils import is_address, to_checksum_address
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models import LoginNonce
 
 _HEADER_SUFFIX = " wants you to sign in with your Ethereum account:"
 
@@ -160,51 +163,60 @@ def verify_message(message: str, signature: str, expected_nonce: str | None) -> 
 
 
 class NonceStore:
-    """内存中的一次性 nonce 存储。
-
-    单实例部署足够；将来多实例横向扩展时需要换成 Redis 等共享存储。
-    """
+    """数据库中的一次性 nonce 存储，可在蓝绿部署和多 API 实例间共享。"""
 
     def __init__(self, ttl_seconds: int) -> None:
         self._ttl = ttl_seconds
-        self._items: dict[str, tuple[str, float]] = {}
-        self._lock = threading.Lock()
+    def issue(self, db: Session, address: str) -> str:
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(seconds=self._ttl)
+        nonce = secrets.token_hex(16)
+        dialect = db.bind.dialect.name if db.bind is not None else ""
+        if dialect == "sqlite":
+            insert = sqlite_insert
+        elif dialect == "postgresql":
+            insert = postgres_insert
+        else:
+            raise RuntimeError(f"登录 nonce 存储不支持数据库方言：{dialect}")
 
-    def issue(self, address: str) -> str:
-        with self._lock:
-            self._purge()
-            nonce = secrets.token_hex(16)
-            self._items[address] = (nonce, time.monotonic() + self._ttl)
-            return nonce
+        # 清理过期行并按地址原子替换挑战；蓝绿两套容器使用同一数据库。
+        db.execute(delete(LoginNonce).where(LoginNonce.expires_at <= now))
+        statement = insert(LoginNonce).values(
+            address=address,
+            nonce=nonce,
+            expires_at=expires_at,
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[LoginNonce.address],
+            set_={"nonce": nonce, "expires_at": expires_at},
+        )
+        db.execute(statement)
+        db.commit()
+        return nonce
 
-    def peek(self, address: str) -> str | None:
+    def peek(self, db: Session, address: str) -> str | None:
         """读取 nonce 但不作废；只有完整验签通过后才允许消费。"""
-        with self._lock:
-            self._purge()
-            item = self._items.get(address)
-            return item[0] if item else None
+        item = db.scalar(select(LoginNonce).where(LoginNonce.address == address))
+        if item is None:
+            return None
+        expires_at = item.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return item.nonce if expires_at > datetime.now(timezone.utc) else None
 
-    def consume_if_matches(self, address: str, nonce: str) -> bool:
+    def consume_if_matches(self, db: Session, address: str, nonce: str) -> bool:
         """验签成功后原子地消费匹配的 nonce，阻止并发重放。"""
-        with self._lock:
-            self._purge()
-            item = self._items.get(address)
-            if item is None or item[0] != nonce:
-                return False
-            del self._items[address]
-            return True
-
-    def consume(self, address: str) -> str | None:
-        """取出并作废该地址的 nonce（一次性）。"""
-        with self._lock:
-            self._purge()
-            item = self._items.pop(address, None)
-            return item[0] if item else None
-
-    def _purge(self) -> None:
-        now = time.monotonic()
-        for key in [key for key, (_, expires) in self._items.items() if expires < now]:
-            self._items.pop(key, None)
+        result = db.execute(
+            delete(LoginNonce).where(
+                LoginNonce.address == address,
+                LoginNonce.nonce == nonce,
+                LoginNonce.expires_at > datetime.now(timezone.utc),
+            )
+        )
+        consumed = result.rowcount == 1
+        if consumed:
+            db.commit()
+        return consumed
 
 
 nonce_store = NonceStore(settings.nonce_ttl_seconds)
