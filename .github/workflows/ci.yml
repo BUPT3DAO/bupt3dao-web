@@ -31,6 +31,9 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 生产依赖安全审计
+        run: pnpm audit --prod --audit-level=low
+
       - name: Lint
         run: pnpm --filter web lint
 

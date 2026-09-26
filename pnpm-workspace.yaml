@@ -1,2 +1,8 @@
 packages:
   - apps/web
+
+overrides:
+  postcss: 8.5.23
+  ws@^8.18.0: 8.21.0
+  uuid: 11.1.1
+  decode-uri-component: 0.5.0
