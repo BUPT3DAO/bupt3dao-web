@@ -47,7 +47,8 @@ def health(db: Session = Depends(get_db)) -> dict[str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="数据库暂不可用",
         ) from exc
-    return {"status": "ok", "environment": settings.environment}
+    # 健康检查是公开探针，只暴露探测所需状态，不泄露部署环境名称。
+    return {"status": "ok"}
 
 
 app.include_router(api)

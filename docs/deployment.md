@@ -92,7 +92,7 @@ sudo chmod 600 /opt/bupt3dao/.env
 | `BLUE_PORT` / `GREEN_PORT` | 建议 | 蓝绿两色绑定的本机端口，默认 `3001` / `3002` |
 | `CADDY_DIR` | 建议 | Caddy 配置目录，服务器上填 `/opt/bupt3dao/caddy` |
 | `ADMIN_ADDRESSES` | 否 | 管理员钱包地址 JSON 数组，如 `["0xabc..."]`。默认 `[]` 即无人有管理员权限 |
-| `ENVIRONMENT` | 否 | 写入 `/api/health` 响应，默认 `production` |
+| `ENVIRONMENT` | 否 | 标记应用运行环境，默认 `production`；不通过公开健康检查响应返回 |
 | `TAG` | 否 | 镜像标签。compose 里默认 `latest`，但**部署脚本会显式传 `TAG=sha-<SHA>`**，不要依赖这个默认值 |
 | `DATABASE_URL` | 否 | 默认 `sqlite:////data/app.db`（容器内绝对路径，注意是四个斜杠）。可换成 `postgresql+psycopg://user:pass@db:5432/bupt3dao` |
 
