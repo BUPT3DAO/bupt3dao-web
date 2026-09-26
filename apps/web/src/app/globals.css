@@ -7,6 +7,7 @@
   --border: #e9e8ed;
   --brand: #2f256c;
   --accent: #6950b5;
+  --on-accent: #ffffff;
   --accent-hover: #4b3e91;
   --accent-soft: #e8defb;
   --danger: #bd4444;
@@ -116,7 +117,7 @@ h3 {
   left: 20px;
   z-index: 100;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   padding: 12px 22px;
   border-radius: 8px;
 }
@@ -202,7 +203,7 @@ h3 {
 }
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
@@ -210,7 +211,7 @@ h3 {
 }
 .btn-dark {
   background: var(--brand);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-dark:hover:not(:disabled) {
   background: #3c315a;
@@ -2538,6 +2539,7 @@ html[data-theme='dark'] {
   --border: #30293e;
   --brand: #b5a0ed;
   --accent: #b197ed;
+  --on-accent: #1c132d;
   --accent-hover: #c4b1f3;
   --accent-soft: #312342;
   --surface-soft: #231d31;
@@ -2851,7 +2853,7 @@ html[data-theme='dark'] {
   border: 0;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
@@ -3543,7 +3545,7 @@ html[data-theme='dark']
 }
 html[data-theme='dark'] :is(.btn-primary, .btn-dark) {
   background: var(--accent);
-  color: #1c132d;
+  color: var(--on-accent);
 }
 html[data-theme='dark'] :is(.btn-primary, .btn-dark):hover:not(:disabled) {
   background: var(--accent-hover);
@@ -3552,6 +3554,12 @@ html[data-theme='dark'] .btn-danger {
   background: #3b242e;
   border-color: #734052;
   color: var(--danger);
+}
+html[data-theme='dark'] .btn-soft {
+  color: var(--text);
+}
+html[data-theme='dark'] .btn-soft:hover {
+  background: var(--surface-hover);
 }
 html[data-theme='dark'] :is(.member-badge, .empty-art svg, .gate-art) {
   background: var(--surface-soft);
@@ -4990,7 +4998,7 @@ html[data-theme='dark'] .skeleton {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.7;
@@ -5085,10 +5093,6 @@ html[data-theme='dark'] .skeleton {
   border-radius: 50%;
   background: var(--accent);
 }
-html[data-theme='dark'] .nav-badge {
-  color: #1c132d;
-}
-
 @media (max-width: 760px) {
   .post-row {
     padding: 16px;
