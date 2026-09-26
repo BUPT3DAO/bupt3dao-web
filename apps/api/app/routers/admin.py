@@ -370,9 +370,14 @@ def upload_group_qrcode(
     """更换首页的社区群二维码；旧图会从上传目录删掉，避免堆积。"""
     config = _site_config(db)
     url = save_image(file, user.address, settings.max_image_bytes, "二维码")
-    remove_image(config.group_qrcode_url)
+    previous_url = config.group_qrcode_url
     config.group_qrcode_url = url
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    remove_image(previous_url)
     return SiteConfigOut.model_validate(config)
 
 
@@ -382,9 +387,10 @@ def remove_group_qrcode(db: Session = Depends(get_db)) -> None:
     config = db.get(SiteConfig, SITE_CONFIG_ID)
     if config is None or config.group_qrcode_url is None:
         return
-    remove_image(config.group_qrcode_url)
+    previous_url = config.group_qrcode_url
     config.group_qrcode_url = None
     db.commit()
+    remove_image(previous_url)
 
 
 @router.put("/site/announcement", response_model=SiteConfigOut)
