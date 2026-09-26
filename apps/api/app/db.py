@@ -37,6 +37,7 @@ if settings.database_url.startswith("sqlite") and settings.database_url != "sqli
         finally:
             cursor.close()
 
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
