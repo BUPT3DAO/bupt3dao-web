@@ -167,6 +167,7 @@ class NonceStore:
 
     def __init__(self, ttl_seconds: int) -> None:
         self._ttl = ttl_seconds
+
     def issue(self, db: Session, address: str) -> str:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(seconds=self._ttl)
