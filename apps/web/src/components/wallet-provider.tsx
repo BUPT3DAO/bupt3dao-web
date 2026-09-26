@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { api, getToken, setToken } from '@/lib/api';
+import { api, getToken, setToken, TOKEN_STORAGE_KEY } from '@/lib/api';
 import type { UserPublic } from '@/types';
 
 const WalletRuntime = dynamic(() => import('@/components/wallet-runtime'), { ssr: false });
@@ -86,6 +86,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // localStorage 在标签页间共享；同步另一个标签的登出或钱包切换，
+  // 避免界面仍显示旧用户、请求却已携带新 token。
+  useEffect(() => {
+    let revision = 0;
+    const syncSession = (event: StorageEvent) => {
+      if (event.key !== TOKEN_STORAGE_KEY && event.key !== null) return;
+      const currentRevision = ++revision;
+      if (!event.newValue) {
+        logout();
+        return;
+      }
+
+      const changedToken = event.newValue;
+      void api
+        .me()
+        .then((nextUser) => {
+          if (currentRevision !== revision || getToken() !== changedToken) return;
+          setUser(nextUser);
+          setAddress(nextUser.address);
+          setError(null);
+          setStatus('authenticated');
+          setWalletRuntimeEnabled(true);
+        })
+        .catch(() => {
+          if (currentRevision === revision && getToken() === changedToken) logout();
+        });
+    };
+
+    window.addEventListener('storage', syncSession);
+    return () => window.removeEventListener('storage', syncSession);
+  }, [logout]);
+
   const connect = useCallback(async () => {
     if (typeof window !== 'undefined' && !window.isSecureContext) {
       setError('当前为 HTTP 预览地址。绑定域名并启用 HTTPS 后，才能安全使用钱包登录。');
@@ -115,9 +147,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const onConnecting = useCallback(() => setStatus('connecting'), []);
 
   const onAccountChange = useCallback(
-    (account: string | null) => {
+    (account: string | null, sessionAddress: string | null) => {
       const currentUser = userRef.current;
-      if (currentUser && account && account.toLowerCase() !== currentUser.address) logout();
+      if (
+        currentUser &&
+        sessionAddress === currentUser.address &&
+        account &&
+        account.toLowerCase() !== currentUser.address
+      ) {
+        logout();
+      }
     },
     [logout],
   );
@@ -136,6 +175,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           onAuthenticated={onAuthenticated}
           onAuthenticationError={onAuthenticationError}
           onAccountChange={onAccountChange}
+          sessionAddress={user?.address ?? null}
           onConnecting={onConnecting}
         />
       )}

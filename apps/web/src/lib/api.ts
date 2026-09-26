@@ -23,7 +23,7 @@ import type {
   UserPublic,
 } from '@/types';
 
-const TOKEN_KEY = 'bupt3dao.token';
+export const TOKEN_STORAGE_KEY = 'bupt3dao.token';
 let sessionToken: string | null = null;
 
 export class ApiError extends Error {
@@ -39,7 +39,7 @@ export class ApiError extends Error {
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    sessionToken = window.localStorage.getItem(TOKEN_KEY);
+    sessionToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
     return sessionToken;
   } catch {
     // 浏览器禁用站点存储时仍允许当前标签页使用刚刚取得的登录态。
@@ -52,9 +52,9 @@ export function setToken(token: string | null): void {
   sessionToken = token;
   try {
     if (token) {
-      window.localStorage.setItem(TOKEN_KEY, token);
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } else {
-      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
   } catch {
     // 内存态只在当前标签页有效；存储可用时仍按原行为跨刷新保留。

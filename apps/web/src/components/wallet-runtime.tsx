@@ -12,7 +12,8 @@ interface WalletRuntimeProps {
   requestId: number;
   onAuthenticated: (token: string, user: UserPublic) => void;
   onAuthenticationError: (message: string) => void;
-  onAccountChange: (account: string | null) => void;
+  onAccountChange: (account: string | null, sessionAddress: string | null) => void;
+  sessionAddress: string | null;
   onConnecting: () => void;
 }
 
@@ -28,8 +29,14 @@ function describeError(cause: unknown): string {
 }
 
 function WalletConnector(props: WalletRuntimeProps) {
-  const { requestId, onAuthenticated, onAuthenticationError, onAccountChange, onConnecting } =
-    props;
+  const {
+    requestId,
+    onAuthenticated,
+    onAuthenticationError,
+    onAccountChange,
+    sessionAddress,
+    onConnecting,
+  } = props;
   const { openConnectModal } = useConnectModal();
   const { address: account, status: accountStatus } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -60,8 +67,8 @@ function WalletConnector(props: WalletRuntimeProps) {
 
   // 钱包换账户后使旧登录态失效；仅在用户主动启用钱包运行时后监听。
   useEffect(() => {
-    onAccountChange(account ?? null);
-  }, [account, onAccountChange]);
+    onAccountChange(account ?? null, sessionAddress);
+  }, [account, onAccountChange, sessionAddress]);
 
   // 若先弹出钱包选择器，等账户连接后再签名，避免刷新页面时误触发签名。
   useEffect(() => {

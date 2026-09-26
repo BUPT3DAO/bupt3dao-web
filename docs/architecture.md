@@ -74,6 +74,7 @@ ThemeProvider           主题，写入 html[data-theme]
 
 - `useWallet()` 返回 `{ status, address, user, error, connect, logout, applyUser }`，`status` 为 `loading | anonymous | connecting | authenticated`。这个接口被 header、发帖框、设置页等多处依赖，改动需要全量回归。
 - [lib/api.ts](../apps/web/src/lib/api.ts) 是浏览器侧的 API 客户端，自动从 `localStorage`（键 `bupt3dao.token`）读 JWT 并加 `Authorization: Bearer`。
+- `WalletProvider` 监听该 token 的跨标签页变更：另一标签登出时同步清理用户态，token 更换时重新向 `/auth/me` 确认身份，防止 UI 用户和请求 token 不一致。
 - 组件不直接 `fetch` 后端，统一走 `api.*` 方法。
 
 ### 钱包弹窗只接插件钱包
