@@ -103,7 +103,7 @@ export async function proxyToApi(
       body,
       redirect: 'manual',
       cache: 'no-store',
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
     });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === 'TimeoutError';

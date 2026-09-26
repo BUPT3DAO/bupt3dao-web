@@ -36,10 +36,16 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
       if (initialData) return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .listPosts({ q: query, topic: topic === '全部' ? '' : topic, limit: PAGE_SIZE })
+      .listPosts({
+        q: query,
+        topic: topic === '全部' ? '' : topic,
+        limit: PAGE_SIZE,
+        signal: controller.signal,
+      })
       .then((data) => {
         if (cancelled) return;
         setPosts(data.items);
@@ -53,6 +59,7 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [initialData, query, topic, version]);
 

@@ -29,10 +29,11 @@ export function MembersClient({
       if (initialData) return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .members(query, page * 12)
+      .members(query, page * 12, controller.signal)
       .then((data) => {
         if (!cancelled) {
           setItems(data.items);
@@ -47,6 +48,7 @@ export function MembersClient({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [initialData, query, page, version]);
   function searchMembers(event: FormEvent) {

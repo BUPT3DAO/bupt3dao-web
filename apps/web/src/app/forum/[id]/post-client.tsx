@@ -45,9 +45,13 @@ export function PostDetailClient({
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     if (!initialPost) setLoading(true);
     setError(null);
-    Promise.all([api.getPost(postId), api.listComments(postId)])
+    Promise.all([
+      api.getPost(postId, controller.signal),
+      api.listComments(postId, 0, 20, controller.signal),
+    ])
       .then(([detail, thread]) => {
         if (cancelled) return;
         setPost(detail);
@@ -65,6 +69,7 @@ export function PostDetailClient({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [initialComments, initialPost, postId]);
 

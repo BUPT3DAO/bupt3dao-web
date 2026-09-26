@@ -36,10 +36,11 @@ export function ArticleDetailClient({
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .getArticle(articleId)
+      .getArticle(articleId, controller.signal)
       .then((data) => {
         if (!cancelled) setArticle(data);
       })
@@ -54,6 +55,7 @@ export function ArticleDetailClient({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [articleId, initialArticle]);
 

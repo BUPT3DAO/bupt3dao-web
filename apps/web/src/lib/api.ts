@@ -99,20 +99,26 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  members: (q = '', offset = 0) =>
-    request<PageResult<Member>>(`/members?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`),
+  members: (q = '', offset = 0, signal?: AbortSignal) =>
+    request<PageResult<Member>>(
+      `/members?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+      { signal },
+    ),
 
-  adminUsers: (q = '', offset = 0, featuredOnly = false) =>
+  adminUsers: (q = '', offset = 0, featuredOnly = false, signal?: AbortSignal) =>
     request<PageResult<AdminUser>>(
       `/admin/users?q=${encodeURIComponent(q)}&offset=${offset}&limit=12&featured_only=${featuredOnly}`,
+      { signal },
     ),
 
-  adminPosts: (q = '', offset = 0) =>
+  adminPosts: (q = '', offset = 0, signal?: AbortSignal) =>
     request<PageResult<PostSummary>>(
       `/admin/posts?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+      { signal },
     ),
 
-  listAdmins: () => request<PageResult<AdminEntry>>('/admin/admins'),
+  listAdmins: (signal?: AbortSignal) =>
+    request<PageResult<AdminEntry>>('/admin/admins', { signal }),
 
   addAdmin: (address: string) =>
     request<AdminEntry>('/admin/admins', {
@@ -147,28 +153,36 @@ export const api = {
       body: JSON.stringify({ message, signature }),
     }),
 
-  me: () => request<UserPublic>('/auth/me'),
+  me: (signal?: AbortSignal) => request<UserPublic>('/auth/me', { signal }),
 
-  listPosts: (options: { q?: string; topic?: string; offset?: number; limit?: number } = {}) => {
-    const { q = '', topic = '', offset = 0, limit = 20 } = options;
+  listPosts: (
+    options: {
+      q?: string;
+      topic?: string;
+      offset?: number;
+      limit?: number;
+      signal?: AbortSignal;
+    } = {},
+  ) => {
+    const { q = '', topic = '', offset = 0, limit = 20, signal } = options;
     const search = new URLSearchParams({
       q,
       topic,
       offset: String(offset),
       limit: String(limit),
     });
-    return request<PageResult<PostSummary>>(`/posts?${search.toString()}`);
+    return request<PageResult<PostSummary>>(`/posts?${search.toString()}`, { signal });
   },
 
-  getPost: (id: number) => request<Post>(`/posts/${id}`),
+  getPost: (id: number, signal?: AbortSignal) => request<Post>(`/posts/${id}`, { signal }),
 
   createPost: (payload: PostPayload) =>
     request<Post>('/posts', { method: 'POST', body: JSON.stringify(payload) }),
 
   deletePost: (id: number) => request<void>(`/posts/${id}`, { method: 'DELETE' }),
 
-  listComments: (postId: number, offset = 0, limit = 20) =>
-    request<CommentPage>(`/posts/${postId}/comments?offset=${offset}&limit=${limit}`),
+  listComments: (postId: number, offset = 0, limit = 20, signal?: AbortSignal) =>
+    request<CommentPage>(`/posts/${postId}/comments?offset=${offset}&limit=${limit}`, { signal }),
 
   createComment: (postId: number, content: string, parentId?: number) =>
     request<Comment>(`/posts/${postId}/comments`, {
@@ -179,26 +193,31 @@ export const api = {
   deleteComment: (postId: number, commentId: number) =>
     request<void>(`/posts/${postId}/comments/${commentId}`, { method: 'DELETE' }),
 
-  listNotifications: (offset = 0, limit = 20) =>
-    request<NotificationFeed>(`/notifications?offset=${offset}&limit=${limit}`),
+  listNotifications: (offset = 0, limit = 20, signal?: AbortSignal) =>
+    request<NotificationFeed>(`/notifications?offset=${offset}&limit=${limit}`, { signal }),
 
-  notificationSummary: () => request<NotificationSummary>('/notifications/summary'),
+  notificationSummary: (signal?: AbortSignal) =>
+    request<NotificationSummary>('/notifications/summary', { signal }),
 
   readNotification: (id: number) =>
     request<NotificationSummary>(`/notifications/${id}/read`, { method: 'POST' }),
 
-  getUser: (address: string) => request<UserProfile>(`/users/${address}`),
+  getUser: (address: string, signal?: AbortSignal) =>
+    request<UserProfile>(`/users/${address}`, { signal }),
 
-  listUserPosts: (address: string, offset = 0, limit = 20) =>
-    request<PageResult<PostSummary>>(`/users/${address}/posts?offset=${offset}&limit=${limit}`),
+  listUserPosts: (address: string, offset = 0, limit = 20, signal?: AbortSignal) =>
+    request<PageResult<PostSummary>>(`/users/${address}/posts?offset=${offset}&limit=${limit}`, {
+      signal,
+    }),
 
   updateProfile: (payload: ProfilePayload) =>
     request<UserPublic>('/users/me', { method: 'PATCH', body: JSON.stringify(payload) }),
 
-  listArticles: (offset = 0, limit = 20) =>
-    request<PageResult<ArticleSummary>>(`/articles?offset=${offset}&limit=${limit}`),
+  listArticles: (offset = 0, limit = 20, signal?: AbortSignal) =>
+    request<PageResult<ArticleSummary>>(`/articles?offset=${offset}&limit=${limit}`, { signal }),
 
-  getArticle: (id: number) => request<Article>(`/articles/${id}`),
+  getArticle: (id: number, signal?: AbortSignal) =>
+    request<Article>(`/articles/${id}`, { signal }),
 
   createArticle: (payload: ArticlePayload) =>
     request<Article>('/articles', { method: 'POST', body: JSON.stringify(payload) }),
@@ -208,9 +227,10 @@ export const api = {
 
   deleteArticle: (id: number) => request<void>(`/articles/${id}`, { method: 'DELETE' }),
 
-  adminArticles: (q = '', offset = 0) =>
+  adminArticles: (q = '', offset = 0, signal?: AbortSignal) =>
     request<PageResult<ArticleSummary>>(
       `/admin/articles?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+      { signal },
     ),
 
   pinArticle: (id: number, isPinned: boolean) =>
@@ -244,7 +264,7 @@ export const api = {
     return request<{ url: string }>('/users/me/images', { method: 'POST', body });
   },
 
-  siteConfig: () => request<SiteConfig>('/site'),
+  siteConfig: (signal?: AbortSignal) => request<SiteConfig>('/site', { signal }),
 
   uploadGroupQrcode: (file: File) => {
     const body = new FormData();

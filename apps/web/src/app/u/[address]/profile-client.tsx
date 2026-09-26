@@ -34,14 +34,15 @@ export function ProfileClient({
     if (!address) return;
     if (initialProfile && initialPosts) return;
     let cancelled = false;
+    const controller = new AbortController();
 
     async function load() {
       if (!initialProfile) setLoading(true);
       setError(null);
       try {
         const [profileData, postData] = await Promise.all([
-          api.getUser(address),
-          api.listUserPosts(address),
+          api.getUser(address, controller.signal),
+          api.listUserPosts(address, 0, 20, controller.signal),
         ]);
         if (cancelled) return;
         setProfile(profileData);
@@ -59,6 +60,7 @@ export function ProfileClient({
     void load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [address, initialPosts, initialProfile]);
 

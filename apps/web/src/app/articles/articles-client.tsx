@@ -32,10 +32,11 @@ export function ArticlesClient({
       if (initialData) return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .listArticles(page * PAGE_SIZE, PAGE_SIZE)
+      .listArticles(page * PAGE_SIZE, PAGE_SIZE, controller.signal)
       .then((data) => {
         if (cancelled) return;
         setItems(data.items);
@@ -49,6 +50,7 @@ export function ArticlesClient({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [initialData, page, version]);
 

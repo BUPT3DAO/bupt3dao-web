@@ -59,6 +59,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // 恢复登录态：本地有 token 就换一次用户信息，换不到说明已失效
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     async function restore() {
       if (!getToken()) {
@@ -66,7 +67,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const me = await api.me();
+        const me = await api.me(controller.signal);
         if (cancelled) return;
         setUser(me);
         setAddress(me.address);
@@ -83,6 +84,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     void restore();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -90,17 +92,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // 避免界面仍显示旧用户、请求却已携带新 token。
   useEffect(() => {
     let revision = 0;
+    let activeRequest: AbortController | null = null;
     const syncSession = (event: StorageEvent) => {
       if (event.key !== TOKEN_STORAGE_KEY && event.key !== null) return;
       const currentRevision = ++revision;
+      activeRequest?.abort();
       if (!event.newValue) {
         logout();
         return;
       }
 
       const changedToken = event.newValue;
+      const controller = new AbortController();
+      activeRequest = controller;
       void api
-        .me()
+        .me(controller.signal)
         .then((nextUser) => {
           if (currentRevision !== revision || getToken() !== changedToken) return;
           setUser(nextUser);
@@ -115,7 +121,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
 
     window.addEventListener('storage', syncSession);
-    return () => window.removeEventListener('storage', syncSession);
+    return () => {
+      activeRequest?.abort();
+      window.removeEventListener('storage', syncSession);
+    };
   }, [logout]);
 
   const connect = useCallback(async () => {

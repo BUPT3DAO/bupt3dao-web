@@ -30,10 +30,11 @@ export default function NotificationsPage() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError('');
     api
-      .listNotifications(0, PAGE_SIZE)
+      .listNotifications(0, PAGE_SIZE, controller.signal)
       .then((data) => {
         if (cancelled) return;
         setItems(data.items);
@@ -49,6 +50,7 @@ export default function NotificationsPage() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [address]);
 
