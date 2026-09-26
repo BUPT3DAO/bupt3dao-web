@@ -149,11 +149,13 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 
 ### 迁移策略
 
-目前**没有引入 Alembic**。[migrations.py](../apps/api/app/migrations.py) 采用三段式，且保证幂等，每次进程启动都会执行：
+目前**没有引入 Alembic**。[migrations.py](../apps/api/app/migrations.py) 采用轻量、幂等的启动迁移，每次进程启动都会执行：
 
 1. `Base.metadata.create_all` —— 建缺失的新表；
 2. `_add_missing_columns` —— 对已有表用 `ALTER TABLE ADD COLUMN` 补新列，数据不动；
 3. `_backfill` —— 历史数据一次性修正（两位年份届别补成四位、早期无标题帖子补标题）。
+
+此外启动时会检查并补建帖子板块/发布时间、文章置顶顺序、通知用户/时间与未读状态的复合索引；`create_all` 不会为已有表自动补新增索引，因此由显式、可重复执行的检查负责旧库升级。
 
 数据模型稳定后应换成 Alembic，新增列时记得同步往 `_LIGHT_COLUMNS` 里登记。
 

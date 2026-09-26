@@ -54,5 +54,10 @@ def ensure_schema(engine: Engine) -> None:
     """幂等：可以安全地在每次启动时调用。"""
     Base.metadata.create_all(bind=engine)
     _add_missing_columns(engine)
+    # create_all 不会给已存在的表补建新增索引；逐个检查以支持旧库平滑升级。
+    for table_name in ("posts", "articles", "notifications"):
+        table = Base.metadata.tables[table_name]
+        for index in table.indexes:
+            index.create(bind=engine, checkfirst=True)
     with Session(engine) as db:
         _backfill(db)

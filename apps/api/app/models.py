@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -89,6 +89,7 @@ class User(Base):
 
 class Post(Base):
     __tablename__ = "posts"
+    __table_args__ = (Index("ix_posts_topic_created_at_id", "topic", "created_at", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140), default="")
@@ -200,6 +201,15 @@ class Article(Base):
     """Markdown 文章。置顶文章按 sort_order 排序，未置顶按发布时间倒序。"""
 
     __tablename__ = "articles"
+    __table_args__ = (
+        Index(
+            "ix_articles_pinned_order_created_id",
+            "is_pinned",
+            "sort_order",
+            "created_at",
+            "id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140))
@@ -244,6 +254,10 @@ class Notification(Base):
     """
 
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_created_id", "user_id", "created_at", "id"),
+        Index("ix_notifications_user_is_read", "user_id", "is_read"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
