@@ -33,7 +33,7 @@ export function relativeTime(iso: string): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
   if (seconds < 86400 * 7) return `${Math.floor(seconds / 86400)} 天前`;
-  return new Date(iso).toLocaleDateString('zh-CN');
+  return formatDate(iso);
 }
 
 /** 固定时区格式化日期，保证服务端 HTML 与浏览器水合结果一致。 */

@@ -80,7 +80,7 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
       >
         <div className="comment-head">
           <UserIdentity user={comment.author} size={30} placement="bottom" />
-          <time className="muted" dateTime={comment.created_at}>
+          <time className="muted" dateTime={comment.created_at} suppressHydrationWarning>
             {relativeTime(comment.created_at)}
           </time>
           <div className="comment-actions">
