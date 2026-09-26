@@ -4,9 +4,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
-import { formatDate } from '@/lib/format';
 import { Icon } from '@/components/icon';
-import { displayName, shortAddress, userMetaLine } from '@/lib/format';
+import { displayName, formatDate, shortAddress, userMetaLine } from '@/lib/format';
 import type { UserBrief } from '@/types';
 
 /** 悬停多久之后弹出名片，和推特的手感接近 */
