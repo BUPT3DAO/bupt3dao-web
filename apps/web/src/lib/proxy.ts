@@ -9,8 +9,22 @@ const DROPPED_RESPONSE_HEADERS = [
   'content-encoding',
   'content-length',
 ];
+const DROPPED_REQUEST_HEADERS = [
+  'connection',
+  'host',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'content-length',
+  'accept-encoding',
+];
 
 const MAX_API_REQUEST_BYTES = 8 * 1024 * 1024;
+const UPSTREAM_TIMEOUT_MS = 30_000;
 
 async function readBodyWithinLimit(request: NextRequest): Promise<ArrayBuffer | null> {
   const declaredSize = Number(request.headers.get('content-length'));
@@ -50,29 +64,54 @@ export async function proxyToApi(
   request: NextRequest,
   segments: string[],
 ): Promise<NextResponse> {
+  if (
+    segments.some(
+      (segment) =>
+        !segment || segment === '.' || segment === '..' || segment.includes('/') || segment.includes('\\'),
+    )
+  ) {
+    return NextResponse.json({ detail: '请求路径不合法' }, { status: 400 });
+  }
+
   const target = (process.env.API_PROXY_TARGET ?? 'http://localhost:8000').replace(/\/+$/, '');
   const { search } = new URL(request.url);
-  const destination = `${target}/${segments.join('/')}${search}`;
+  const destination = `${target}/${segments.map((segment) => encodeURIComponent(segment)).join('/')}${search}`;
 
   const headers = new Headers(request.headers);
-  headers.delete('host');
-  // 重新构造请求体后由 fetch 生成准确长度，避免转发客户端伪造的 Content-Length。
-  headers.delete('content-length');
-  // 让后端直接返回未压缩内容，避免 Next 二次编码
-  headers.delete('accept-encoding');
+  // 删除逐跳头及失效的长度/编码信息，避免把客户端连接状态转发给上游。
+  const connectionHeaders = headers.get('connection')?.split(',') ?? [];
+  for (const name of DROPPED_REQUEST_HEADERS) headers.delete(name);
+  for (const name of connectionHeaders) {
+    if (name.trim()) headers.delete(name.trim());
+  }
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
-  const body = hasBody ? await readBodyWithinLimit(request) : undefined;
+  let body: ArrayBuffer | null | undefined;
+  try {
+    body = hasBody ? await readBodyWithinLimit(request) : undefined;
+  } catch {
+    return NextResponse.json({ detail: '读取请求内容失败，请重试' }, { status: 400 });
+  }
   if (body === null) {
     return NextResponse.json({ detail: '请求内容不能超过 8 MB' }, { status: 413 });
   }
-  const upstream = await fetch(destination, {
-    method: request.method,
-    headers,
-    body,
-    redirect: 'manual',
-    cache: 'no-store',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(destination, {
+      method: request.method,
+      headers,
+      body,
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error instanceof Error && error.name === 'TimeoutError';
+    return NextResponse.json(
+      { detail: timedOut ? '后端响应超时，请稍后重试' : '后端服务暂不可用，请稍后重试' },
+      { status: timedOut ? 504 : 502 },
+    );
+  }
 
   const responseHeaders = new Headers(upstream.headers);
   for (const name of DROPPED_RESPONSE_HEADERS) {
