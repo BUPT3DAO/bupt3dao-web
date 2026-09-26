@@ -37,9 +37,12 @@ def verify_signature(payload: VerifyRequest, db: Session = Depends(get_db)) -> T
     """校验签名；地址首次出现时自动注册。"""
     try:
         address = normalize_address(parse_message(payload.message).address)
-        # 先取出 nonce（一次性作废），签名校验失败也不会被重放
-        expected_nonce = nonce_store.consume(address)
+        # 无效签名不应作废公开可见地址对应的登录挑战。
+        expected_nonce = nonce_store.peek(address)
         verify_message(payload.message, payload.signature, expected_nonce)
+        # 比对并作废必须原子完成，避免两份并发请求同时通过同一个 nonce。
+        if expected_nonce is None or not nonce_store.consume_if_matches(address, expected_nonce):
+            raise SiweError("登录挑战已使用，请重新签名")
     except SiweError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
 

@@ -5,6 +5,7 @@
 """
 
 import secrets
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -26,8 +27,12 @@ class SiweError(Exception):
 class ParsedMessage:
     domain: str
     address: str
+    uri: str
+    version: str
+    chain_id: int
+    issued_at: datetime
     nonce: str
-    expiration: datetime | None
+    expiration: datetime
 
 
 def _rfc3339(moment: datetime) -> str:
@@ -75,7 +80,7 @@ def build_message(address: str, nonce: str) -> str:
 def parse_message(message: str) -> ParsedMessage:
     """解析 EIP-4361 消息；只取安全相关字段，格式不符即视为非法。"""
     lines = message.split("\n")
-    if not lines[0].endswith(_HEADER_SUFFIX):
+    if not lines or not lines[0].endswith(_HEADER_SUFFIX):
         raise SiweError("消息头部格式不正确")
     domain = lines[0][: -len(_HEADER_SUFFIX)]
     if len(lines) < 2 or not is_address(lines[1]):
@@ -91,18 +96,28 @@ def parse_message(message: str) -> ParsedMessage:
         key, sep, value = line.partition(": ")
         if not sep:
             raise SiweError("消息字段格式不正确")
+        if key in fields:
+            raise SiweError("消息字段重复")
         fields[key] = value
 
-    for required in ("Version", "Chain ID", "Nonce", "Issued At"):
+    for required in ("URI", "Version", "Chain ID", "Nonce", "Issued At", "Expiration Time"):
         if required not in fields:
             raise SiweError(f"消息缺少 {required} 字段")
 
-    expiration = fields.get("Expiration Time")
+    try:
+        chain_id = int(fields["Chain ID"])
+    except ValueError as exc:
+        raise SiweError("Chain ID 字段格式不正确") from exc
+
     return ParsedMessage(
         domain=domain,
         address=lines[1],
+        uri=fields["URI"],
+        version=fields["Version"],
+        chain_id=chain_id,
+        issued_at=_parse_rfc3339(fields["Issued At"]),
         nonce=fields["Nonce"],
-        expiration=_parse_rfc3339(expiration) if expiration else None,
+        expiration=_parse_rfc3339(fields["Expiration Time"]),
     )
 
 
@@ -114,8 +129,24 @@ def verify_message(message: str, signature: str, expected_nonce: str | None) -> 
         raise SiweError("登录挑战已失效，请重新签名")
     if parsed.domain != settings.siwe_domain:
         raise SiweError("签名域名不匹配")
-    if parsed.expiration is not None and parsed.expiration < datetime.now(timezone.utc):
+    if parsed.uri != settings.siwe_uri:
+        raise SiweError("签名 URI 不匹配")
+    if parsed.version != "1":
+        raise SiweError("签名版本不受支持")
+    if parsed.chain_id != settings.siwe_chain_id:
+        raise SiweError("签名网络不匹配")
+
+    now = datetime.now(timezone.utc)
+    if parsed.issued_at > now + timedelta(seconds=30):
+        raise SiweError("签名时间来自未来")
+    if parsed.issued_at < now - timedelta(seconds=settings.nonce_ttl_seconds):
         raise SiweError("签名已过期，请重新签名")
+    if parsed.expiration < now:
+        raise SiweError("签名已过期，请重新签名")
+    if parsed.expiration <= parsed.issued_at:
+        raise SiweError("签名有效期不正确")
+    if (parsed.expiration - parsed.issued_at).total_seconds() > settings.nonce_ttl_seconds:
+        raise SiweError("签名有效期超过允许范围")
 
     try:
         # 签名来自不可信输入，任何解析异常都统一按校验失败处理
@@ -137,18 +168,38 @@ class NonceStore:
     def __init__(self, ttl_seconds: int) -> None:
         self._ttl = ttl_seconds
         self._items: dict[str, tuple[str, float]] = {}
+        self._lock = threading.Lock()
 
     def issue(self, address: str) -> str:
-        self._purge()
-        nonce = secrets.token_hex(16)
-        self._items[address] = (nonce, time.monotonic() + self._ttl)
-        return nonce
+        with self._lock:
+            self._purge()
+            nonce = secrets.token_hex(16)
+            self._items[address] = (nonce, time.monotonic() + self._ttl)
+            return nonce
+
+    def peek(self, address: str) -> str | None:
+        """读取 nonce 但不作废；只有完整验签通过后才允许消费。"""
+        with self._lock:
+            self._purge()
+            item = self._items.get(address)
+            return item[0] if item else None
+
+    def consume_if_matches(self, address: str, nonce: str) -> bool:
+        """验签成功后原子地消费匹配的 nonce，阻止并发重放。"""
+        with self._lock:
+            self._purge()
+            item = self._items.get(address)
+            if item is None or item[0] != nonce:
+                return False
+            del self._items[address]
+            return True
 
     def consume(self, address: str) -> str | None:
         """取出并作废该地址的 nonce（一次性）。"""
-        self._purge()
-        item = self._items.pop(address, None)
-        return item[0] if item else None
+        with self._lock:
+            self._purge()
+            item = self._items.pop(address, None)
+            return item[0] if item else None
 
     def _purge(self) -> None:
         now = time.monotonic()

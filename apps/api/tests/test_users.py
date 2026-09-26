@@ -66,6 +66,16 @@ def test_upload_avatar_rejects_non_image(client: TestClient, auth: dict[str, str
     assert response.status_code == 400
 
 
+def test_upload_avatar_rejects_mime_spoofing(client: TestClient, auth: dict[str, str]) -> None:
+    response = client.post(
+        "/api/users/me/avatar",
+        files={"file": ("avatar.png", io.BytesIO(b"<script>alert(1)</script>"), "image/png")},
+        headers=auth,
+    )
+
+    assert response.status_code == 400
+
+
 def test_upload_banner_and_profile_shows_it(client: TestClient, auth: dict[str, str]) -> None:
     response = client.post(
         "/api/users/me/banner",

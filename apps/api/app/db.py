@@ -18,7 +18,8 @@ def _engine_options() -> dict[str, object]:
             from pathlib import Path
 
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        return {"connect_args": {"check_same_thread": False}}
+        # 避免蓝绿容器或短时并发写入时，SQLite 的默认 5 秒忙等过早失败。
+        return {"connect_args": {"check_same_thread": False, "timeout": 30}}
     return {}
 
 

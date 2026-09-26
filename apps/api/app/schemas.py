@@ -108,8 +108,9 @@ class NonceResponse(BaseModel):
 
 
 class VerifyRequest(BaseModel):
-    message: str
-    signature: str
+    # 登录签名消息很短；限制请求字段，避免匿名接口接收无界大字符串。
+    message: str = Field(min_length=1, max_length=2048)
+    signature: str = Field(min_length=1, max_length=256)
 
 
 class TokenResponse(BaseModel):
