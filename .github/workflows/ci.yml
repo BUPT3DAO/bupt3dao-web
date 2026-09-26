@@ -114,7 +114,6 @@ jobs:
           docker run -d --name bupt3dao-api-ci \
             -e ENVIRONMENT=local \
             -e JWT_SECRET=test-only-secret-for-container-smoke-test \
-            -e DATABASE_URL=sqlite:////data/app.db \
             -p 127.0.0.1:8000:8000 \
             bupt3dao/api:ci
           trap 'docker rm -f bupt3dao-api-ci >/dev/null 2>&1 || true' EXIT
