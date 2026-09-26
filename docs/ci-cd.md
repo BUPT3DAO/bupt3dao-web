@@ -35,7 +35,7 @@ CI 与部署共用同一份检查逻辑：`release.yml` 的 `checks` job 通过 
 1. `actions/checkout@v4`
 2. `actions/setup-python@v5`，Python 3.12，缓存依赖 `apps/api/requirements-dev.txt`
 3. `pip install -r requirements-dev.txt`
-4. `pypa/gh-action-pip-audit@v1.1.0` 审计 `requirements.txt` 中的生产依赖
+4. `pypa/gh-action-pip-audit@v1.1.0` 审计仓库路径 `apps/api/requirements.txt` 中的生产依赖
 5. `ruff check .`
 6. `ruff format --check .` —— 格式不达标会失败，本地先跑 `pnpm format:api`
 7. `pytest`
