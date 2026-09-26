@@ -97,7 +97,7 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/api/health` | 公开 | 健康检查，返回 `{"status":"ok","environment":"..."}` |
+| GET | `/api/health` | 公开 | 数据库可用时返回 `{"status":"ok","environment":"..."}`；数据库不可用时返回 503，供容器与部署探针识别故障 |
 
 ## 站点配置 `site`
 

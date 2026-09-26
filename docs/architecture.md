@@ -95,7 +95,7 @@ apps/api/app/
 └── routers/       auth / posts / notifications / users / members / articles / site / admin
 ```
 
-所有业务路由挂在一个 `prefix="/api"` 的 APIRouter 下（[main.py](../apps/api/app/main.py)），因此对外路径统一是 `/api/...`。健康检查为 `GET /api/health`，返回 `{"status": "ok", "environment": ...}`。
+所有业务路由挂在一个 `prefix="/api"` 的 APIRouter 下（[main.py](../apps/api/app/main.py)），因此对外路径统一是 `/api/...`。健康检查为 `GET /api/health`：执行数据库 `SELECT 1` 成功时返回 `{"status": "ok", "environment": ...}`，数据库不可用时返回 503，避免部署探针把无法服务请求的 API 误判为健康。
 
 站内消息由 [posts.py](../apps/api/app/routers/posts.py) 在落评论时顺手写入，[notifications.py](../apps/api/app/routers/notifications.py) 只负责读取与标记已读：一级评论发给帖子作者，回复发给被回复的人，自己回复自己不产生消息。
 

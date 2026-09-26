@@ -1,9 +1,12 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import engine
+from app.db import engine, get_db
 from app.migrations import ensure_schema
 from app.routers import admin, articles, auth, members, notifications, posts, site, users
 
@@ -36,7 +39,14 @@ api.include_router(admin.router)
 
 
 @api.get("/health", tags=["system"])
-def health() -> dict[str, str]:
+def health(db: Session = Depends(get_db)) -> dict[str, str]:
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="数据库暂不可用",
+        ) from exc
     return {"status": "ok", "environment": settings.environment}
 
 
