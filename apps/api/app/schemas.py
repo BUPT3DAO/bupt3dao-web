@@ -212,6 +212,7 @@ class CommentOut(BaseModel):
 class CommentListOut(BaseModel):
     items: list[CommentOut]
     total: int
+    has_more: bool = False
 
 
 class NotificationOut(BaseModel):

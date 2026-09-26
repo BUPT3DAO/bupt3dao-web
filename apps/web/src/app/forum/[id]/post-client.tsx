@@ -11,7 +11,7 @@ import { UserIdentity } from '@/components/user-identity';
 import { useWallet } from '@/components/wallet-provider';
 import { ApiError, api } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
-import type { Comment, PageResult, Post } from '@/types';
+import type { Comment, CommentPage, Post } from '@/types';
 
 export function PostDetailClient({
   postId,
@@ -20,7 +20,7 @@ export function PostDetailClient({
 }: {
   postId: number;
   initialPost: Post | null;
-  initialComments: PageResult<Comment> | null;
+  initialComments: CommentPage | null;
 }) {
   const router = useRouter();
   const { user } = useWallet();
@@ -28,6 +28,7 @@ export function PostDetailClient({
   const [post, setPost] = useState<Post | null>(initialPost);
   const [comments, setComments] = useState<Comment[]>(initialComments?.items ?? []);
   const [commentTotal, setCommentTotal] = useState(initialComments?.total ?? 0);
+  const [commentsHasMore, setCommentsHasMore] = useState(initialComments?.has_more ?? false);
   const [loading, setLoading] = useState(initialPost === null);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -52,6 +53,7 @@ export function PostDetailClient({
         setPost(detail);
         setComments(thread.items);
         setCommentTotal(thread.total);
+        setCommentsHasMore(thread.has_more);
       })
       .catch((cause) => {
         if (cancelled) return;
@@ -141,6 +143,7 @@ export function PostDetailClient({
               postId={post.id}
               initial={comments}
               initialTotal={commentTotal}
+              initialHasMore={commentsHasMore}
             />
           </>
         )}

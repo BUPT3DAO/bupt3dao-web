@@ -70,6 +70,26 @@ def test_three_level_thread_is_returned_as_tree(client, auth, sign_in):
     assert next(item for item in feed if item["id"] == post["id"])["comment_count"] == 3
 
 
+def test_comment_threads_are_paginated_without_splitting_replies(client, auth):
+    post = _create_post(client, auth)
+    _comment(client, auth, post["id"], "第一个主题")
+    _comment(client, auth, post["id"], "第二个主题")
+    _comment(client, auth, post["id"], "第三个主题")
+    first_root = _comment(client, auth, post["id"], "最新主题")
+    first_reply = _comment(client, auth, post["id"], "主题回复", first_root["id"])
+    _comment(client, auth, post["id"], "回复的回复", first_reply["id"])
+
+    first_page = client.get(f"/api/posts/{post['id']}/comments?limit=2").json()
+    assert first_page["total"] == 6
+    assert first_page["has_more"] is True
+    assert [comment["content"] for comment in first_page["items"]] == ["最新主题", "第三个主题"]
+    assert first_page["items"][0]["replies"][0]["replies"][0]["content"] == "回复的回复"
+
+    second_page = client.get(f"/api/posts/{post['id']}/comments?limit=2&offset=2").json()
+    assert second_page["has_more"] is False
+    assert [comment["content"] for comment in second_page["items"]] == ["第二个主题", "第一个主题"]
+
+
 def test_comment_permissions(client, auth, sign_in, admin_auth):
     post = _create_post(client, auth)
     root = _comment(client, auth, post["id"], "我的评论")

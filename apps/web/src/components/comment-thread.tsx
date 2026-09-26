@@ -14,17 +14,26 @@ import type { Comment } from '@/types';
 /** 一级评论 → 回复 → 回复的回复，到此为止 */
 export const MAX_COMMENT_DEPTH = 3;
 const CONTENT_MAX = 2000;
+const COMMENT_PAGE_SIZE = 20;
 
 interface CommentThreadProps {
   postId: number;
   initial: Comment[];
   initialTotal: number;
+  initialHasMore: boolean;
 }
 
-export function CommentThread({ postId, initial, initialTotal }: CommentThreadProps) {
+export function CommentThread({
+  postId,
+  initial,
+  initialTotal,
+  initialHasMore,
+}: CommentThreadProps) {
   const { user, status, connect } = useWallet();
   const [comments, setComments] = useState<Comment[]>(initial);
   const [total, setTotal] = useState(initialTotal);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +42,23 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
     const data = await api.listComments(postId);
     setComments(data.items);
     setTotal(data.total);
+    setHasMore(data.has_more);
+  }
+
+  async function loadMore() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const data = await api.listComments(postId, comments.length, COMMENT_PAGE_SIZE);
+      setComments((current) => [...current, ...data.items]);
+      setTotal(data.total);
+      setHasMore(data.has_more);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : '加载更多评论失败，请稍后重试');
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   async function publish(content: string, parentId?: number) {
@@ -165,6 +191,15 @@ export function CommentThread({ postId, initial, initialTotal }: CommentThreadPr
         <p className="muted comment-empty">还没有人发言，来做第一个吧。</p>
       ) : (
         <div className="comment-list">{comments.map(renderComment)}</div>
+      )}
+      {hasMore && (
+        <button
+          className="btn btn-ghost load-more"
+          disabled={loadingMore || busy}
+          onClick={() => void loadMore()}
+        >
+          {loadingMore ? '加载中…' : '加载更多评论'}
+        </button>
       )}
     </section>
   );

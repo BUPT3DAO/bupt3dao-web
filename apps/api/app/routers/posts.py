@@ -170,15 +170,50 @@ def delete_post(
 
 
 @router.get("/{post_id}/comments", response_model=CommentListOut)
-def list_comments(post_id: int, db: Session = Depends(get_db)) -> CommentListOut:
+def list_comments(
+    post_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> CommentListOut:
     find_post(db, post_id)
-    comments = db.scalars(
+    visible = select(Comment).where(Comment.post_id == post_id, VISIBLE_COMMENT)
+    total = db.scalar(select(func.count()).select_from(visible.subquery())) or 0
+    root_query = select(Comment).where(
+        Comment.post_id == post_id,
+        Comment.parent_id.is_(None),
+        VISIBLE_COMMENT,
+    )
+    root_total = db.scalar(select(func.count()).select_from(root_query.subquery())) or 0
+    roots = db.scalars(
+        root_query.options(selectinload(Comment.author))
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+    # Paginate conversation roots, then fetch their descendants so each returned
+    # thread remains complete and replies are never orphaned by page boundaries.
+    root_ids = [comment.id for comment in roots]
+    replies = db.scalars(
         select(Comment)
-        .where(Comment.post_id == post_id, VISIBLE_COMMENT)
+        .where(Comment.parent_id.in_(root_ids), VISIBLE_COMMENT)
         .options(selectinload(Comment.author))
         .order_by(Comment.created_at.asc(), Comment.id.asc())
     ).all()
-    return CommentListOut(items=build_tree(comments), total=len(comments))
+    reply_ids = [comment.id for comment in replies]
+    nested_replies = db.scalars(
+        select(Comment)
+        .where(Comment.parent_id.in_(reply_ids), VISIBLE_COMMENT)
+        .options(selectinload(Comment.author))
+        .order_by(Comment.created_at.asc(), Comment.id.asc())
+    ).all()
+    comments = roots + replies + nested_replies
+    return CommentListOut(
+        items=build_tree(comments),
+        total=total,
+        has_more=offset + len(roots) < root_total,
+    )
 
 
 @router.post("/{post_id}/comments", response_model=CommentOut, status_code=status.HTTP_201_CREATED)

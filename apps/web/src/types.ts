@@ -178,3 +178,7 @@ export interface PageResult<T> {
   items: T[];
   total: number;
 }
+
+export interface CommentPage extends PageResult<Comment> {
+  has_more: boolean;
+}

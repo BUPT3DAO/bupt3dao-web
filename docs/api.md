@@ -121,11 +121,11 @@ Authorization: Bearer <token>
 | POST | `/api/posts` | 登录 | 发帖。body：`{title, topic, content}` |
 | GET | `/api/posts/{post_id}` | 公开 | 帖子详情 |
 | DELETE | `/api/posts/{post_id}` | 登录 | 删帖。仅作者本人或管理员 |
-| GET | `/api/posts/{post_id}/comments` | 公开 | 评论列表，**已按层级组装成树**返回 |
+| GET | `/api/posts/{post_id}/comments` | 公开 | 评论树分页。`limit`（默认 20，最大 100）和 `offset` 针对一级评论主题分页；每个主题的回复完整返回。响应含全部可见评论的 `total` 和是否还有主题的 `has_more` |
 | POST | `/api/posts/{post_id}/comments` | 登录 | 发表评论 / 回复。body：`{content}` 或 `{content, parent_id}` |
 | DELETE | `/api/posts/{post_id}/comments/{comment_id}` | 登录 | 删除评论。仅作者本人或管理员。删一级评论会级联删掉其下回复 |
 
-评论最多三级（`MAX_COMMENT_DEPTH = 3`），超过会返回 400。
+评论最多三级（`MAX_COMMENT_DEPTH = 3`），超过会返回 409。帖子详情首屏展示最新的 20 个一级评论主题，可继续向下加载更早的主题；单个主题下的回复会完整展示。
 
 发评论会顺带投递站内消息：一级评论提醒帖子作者（`post_comment`），回复提醒被回复的人（`comment_reply`）。自己回复自己不产生消息，被封禁用户的动作也不会提醒任何人。
 

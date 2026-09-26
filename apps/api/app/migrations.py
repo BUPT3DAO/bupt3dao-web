@@ -55,7 +55,7 @@ def ensure_schema(engine: Engine) -> None:
     Base.metadata.create_all(bind=engine)
     _add_missing_columns(engine)
     # create_all 不会给已存在的表补建新增索引；逐个检查以支持旧库平滑升级。
-    for table_name in ("posts", "articles", "notifications"):
+    for table_name in ("posts", "comments", "articles", "notifications"):
         table = Base.metadata.tables[table_name]
         for index in table.indexes:
             index.create(bind=engine, checkfirst=True)

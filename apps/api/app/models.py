@@ -111,6 +111,9 @@ class Comment(Base):
     """帖子评论，最多三级：一级评论、二级回复、三级回复。"""
 
     __tablename__ = "comments"
+    __table_args__ = (
+        Index("ix_comments_post_parent_created_id", "post_id", "parent_id", "created_at", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), index=True)

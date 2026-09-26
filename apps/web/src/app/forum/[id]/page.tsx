@@ -4,13 +4,13 @@ import { cache } from 'react';
 import { PostDetailClient } from './post-client';
 
 import { getServerApi } from '@/lib/server-api';
-import type { Comment, PageResult, Post } from '@/types';
+import type { CommentPage, Post } from '@/types';
 
 type PostPageProps = { params: Promise<{ id: string }> };
 
 const getPost = cache((id: number) => getServerApi<Post>(`/posts/${id}`));
 const getComments = cache((id: number) =>
-  getServerApi<PageResult<Comment>>(`/posts/${id}/comments`),
+  getServerApi<CommentPage>(`/posts/${id}/comments`),
 );
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,7 @@ export default async function PostPage({ params }: PostPageProps) {
   const postId = Number(rawId);
   const validId = Number.isInteger(postId) && postId > 0;
   let initialPost: Post | null = null;
-  let initialComments: PageResult<Comment> | null = null;
+  let initialComments: CommentPage | null = null;
   if (validId) {
     [initialPost, initialComments] = await Promise.all([getPost(postId), getComments(postId)]);
   }

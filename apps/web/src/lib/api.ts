@@ -6,6 +6,7 @@ import type {
   ArticleSummary,
   Challenge,
   Comment,
+  CommentPage,
   Member,
   MemberDetails,
   MoveDirection,
@@ -166,7 +167,8 @@ export const api = {
 
   deletePost: (id: number) => request<void>(`/posts/${id}`, { method: 'DELETE' }),
 
-  listComments: (postId: number) => request<PageResult<Comment>>(`/posts/${postId}/comments`),
+  listComments: (postId: number, offset = 0, limit = 20) =>
+    request<CommentPage>(`/posts/${postId}/comments?offset=${offset}&limit=${limit}`),
 
   createComment: (postId: number, content: string, parentId?: number) =>
     request<Comment>(`/posts/${postId}/comments`, {

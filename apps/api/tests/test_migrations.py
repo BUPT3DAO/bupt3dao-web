@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, inspect
 
 from app.db import Base
 from app.migrations import ensure_schema
-from app.models import Article, Notification, Post
+from app.models import Article, Comment, Notification, Post
 
 
 def test_startup_migration_adds_compound_indexes_to_existing_schema() -> None:
@@ -11,13 +11,19 @@ def test_startup_migration_adds_compound_indexes_to_existing_schema() -> None:
         Base.metadata.create_all(engine)
         expected = {
             "posts": ("ix_posts_topic_created_at_id",),
+            "comments": ("ix_comments_post_parent_created_id",),
             "articles": ("ix_articles_pinned_order_created_id",),
             "notifications": (
                 "ix_notifications_user_created_id",
                 "ix_notifications_user_is_read",
             ),
         }
-        models = {"posts": Post, "articles": Article, "notifications": Notification}
+        models = {
+            "posts": Post,
+            "comments": Comment,
+            "articles": Article,
+            "notifications": Notification,
+        }
         for table_name, index_names in expected.items():
             for index_name in index_names:
                 index = next(
