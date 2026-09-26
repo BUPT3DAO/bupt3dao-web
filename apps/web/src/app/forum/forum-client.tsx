@@ -24,8 +24,13 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
   const [version, setVersion] = useState(0);
   const paging = useRef(false);
   const initialLoad = useRef(true);
+  const requestVersion = useRef(0);
+  const filterKey = JSON.stringify([query, topic]);
+  const filterKeyRef = useRef(filterKey);
+  filterKeyRef.current = filterKey;
 
   useEffect(() => {
+    requestVersion.current += 1;
     if (initialLoad.current) {
       initialLoad.current = false;
       if (initialData) return;
@@ -53,6 +58,8 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
 
   async function loadMore() {
     if (paging.current) return;
+    const requestedVersion = requestVersion.current;
+    const requestedFilter = filterKey;
     paging.current = true;
     setLoadingMore(true);
     setError('');
@@ -63,13 +70,24 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
         offset: posts.length,
         limit: PAGE_SIZE,
       });
+      if (
+        requestVersion.current !== requestedVersion ||
+        filterKeyRef.current !== requestedFilter
+      ) {
+        return;
+      }
       setPosts((current) => [
         ...current,
         ...data.items.filter((item) => !current.some((post) => post.id === item.id)),
       ]);
       setTotal(data.total);
     } catch {
-      setError('加载更多失败，请重试。');
+      if (
+        requestVersion.current === requestedVersion &&
+        filterKeyRef.current === requestedFilter
+      ) {
+        setError('加载更多失败，请重试。');
+      }
     } finally {
       paging.current = false;
       setLoadingMore(false);
@@ -198,7 +216,7 @@ export function ForumClient({ initialData }: { initialData: PageResult<PostSumma
               {posts.length < total && (
                 <button
                   className="btn btn-ghost load-more"
-                  disabled={loadingMore}
+                  disabled={loading || loadingMore}
                   onClick={() => void loadMore()}
                 >
                   {loadingMore ? '加载中…' : '加载更多帖子'}
