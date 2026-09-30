@@ -128,6 +128,12 @@ rollback() {
     # 首次从旧布局迁移时 gateway 换了挂载方式要重建，万一新容器起不来，用旧定义把入口拉回来
     compose "$previous" up -d --no-build --wait --wait-timeout 90 gateway || true
   fi
+  if [[ -n "$previous" ]]; then
+    compose "$previous" up -d --no-build --wait --wait-timeout 90 api-reminders \
+      || compose "$SHA" stop api-reminders || true
+  else
+    compose "$SHA" stop api-reminders || true
+  fi
   compose "$SHA" rm -sf "web-$target" "api-$target" || true
   exit "$exit_code"
 }
@@ -135,6 +141,7 @@ trap rollback ERR
 
 # 先把非活跃色跑起来并等它健康，此时线上仍由旧色对外服务
 compose "$SHA" up -d --no-build --wait --wait-timeout 180 "api-$target" "web-$target"
+compose "$SHA" up -d --no-build --wait --wait-timeout 90 api-reminders
 port="$(port_of "$target")"
 [[ "$port" =~ ^[0-9]+$ ]]
 curl --fail --silent --show-error --max-time 15 "http://127.0.0.1:$port/api/health"

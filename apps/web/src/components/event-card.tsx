@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Icon } from '@/components/icon';
+import { EventFollowControl } from '@/components/event-follow-control';
 import type { CommunityEvent } from '@/types';
 
 export function eventDate(value: string | null): string {
@@ -16,9 +17,11 @@ export function eventDate(value: string | null): string {
   }).format(new Date(value));
 }
 
-export function EventCard({ event }: { event: CommunityEvent }) {
+export function EventCard({ event, onFollowChange }: { event: CommunityEvent; onFollowChange?: (followed: boolean) => void }) {
   const badge =
-    event.event_state === 'cancelled'
+    event.publication_status === 'draft'
+      ? '活动已撤回'
+      : event.event_state === 'cancelled'
       ? '已取消'
       : event.event_state === 'ended'
         ? '往期活动'
@@ -42,6 +45,7 @@ export function EventCard({ event }: { event: CommunityEvent }) {
       <Link className="text-link" href={`/events/${event.id}`}>
         查看活动 <Icon name="arrow" size={15} />
       </Link>
+      <EventFollowControl event={event} onChange={onFollowChange} />
     </article>
   );
 }

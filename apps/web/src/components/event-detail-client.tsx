@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { eventDate } from '@/components/event-card';
+import { EventFollowControl } from '@/components/event-follow-control';
 import { Icon } from '@/components/icon';
 import { Markdown } from '@/components/markdown';
 import { useWallet } from '@/components/wallet-provider';
@@ -87,6 +88,7 @@ export function EventDetailClient({ eventId }: { eventId: number }) {
           {event.event_state === 'cancelled' ? <p className="event-closed-note">本次活动已取消。</p> : event.registration_open && event.registration_url ? <a className="btn btn-primary event-action" href={event.registration_url} target="_blank" rel="noopener noreferrer">前往外部报名 <Icon name="upRight" size={15} /></a> : event.registration_url ? <p className="event-closed-note">报名已截止。</p> : <p className="event-closed-note">本活动无需报名。</p>}
           {event.publication_status === 'published' && event.event_state !== 'cancelled' && <button className="btn btn-ghost event-action" disabled={calendarBusy} onClick={() => void downloadCalendar()}><Icon name="calendar" size={16} />{calendarBusy ? '正在下载…' : '添加到日历'}</button>}
           <p className="hint">请以官网页面的最新时间和安排为准。</p>
+          <EventFollowControl event={event} />
         </aside>
       </div>
     </article>

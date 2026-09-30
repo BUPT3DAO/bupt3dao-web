@@ -1,6 +1,6 @@
 """社区活动。活动内容仅对已登录且未封禁的社区成员开放。"""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
@@ -8,8 +8,16 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Event, User
-from app.schemas import EventCancelPayload, EventListOut, EventOut, EventPayload
+from app.event_service import TRACKED_FIELDS, notify_followers
+from app.models import Event, EventChange, EventFollow, EventNotification, User
+from app.schemas import (
+    EventCancelPayload,
+    EventFollowOut,
+    EventFollowPayload,
+    EventListOut,
+    EventOut,
+    EventPayload,
+)
 from app.security import get_admin, get_current_user
 
 router = APIRouter(tags=["events"])
@@ -30,7 +38,9 @@ def as_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc)
 
 
-def event_out(event: Event) -> EventOut:
+def event_out(
+    event: Event, follow: EventFollow | None = None, followers_notified: int = 0
+) -> EventOut:
     now = now_utc()
     starts_at = as_utc(event.starts_at)
     ends_at = as_utc(event.ends_at)
@@ -68,13 +78,55 @@ def event_out(event: Event) -> EventOut:
         cancellation_reason=event.cancellation_reason,
         event_state=state,
         registration_open=registration_open,
+        followed=bool(follow and follow.is_active),
+        reminder_preference=follow.reminder_preference if follow and follow.is_active else None,
+        followers_notified=followers_notified,
         created_at=as_utc(event.created_at),
         updated_at=as_utc(event.updated_at),
     )
 
 
-def event_list_out(events: list[Event], total: int) -> EventListOut:
-    return EventListOut(items=[event_out(event) for event in events], total=total)
+def event_list_out(
+    events: list[Event],
+    total: int,
+    db: Session | None = None,
+    user_id: int | None = None,
+    redact_withdrawn: bool = False,
+) -> EventListOut:
+    follows: dict[int, EventFollow] = {}
+    if db and user_id and events:
+        follows = {
+            follow.event_id: follow
+            for follow in db.scalars(
+                select(EventFollow).where(
+                    EventFollow.user_id == user_id,
+                    EventFollow.is_active.is_(True),
+                    EventFollow.event_id.in_([event.id for event in events]),
+                )
+            ).all()
+        }
+    items = []
+    for event in events:
+        if redact_withdrawn and event.publication_status == "draft":
+            item = event_out(event, follows.get(event.id)).model_copy(
+                update={
+                    "title": "活动已撤回",
+                    "summary": "",
+                    "content": "",
+                    "organizer": "",
+                    "location": "",
+                    "starts_at": None,
+                    "ends_at": None,
+                    "registration_url": None,
+                    "registration_deadline": None,
+                    "materials": "",
+                    "registration_open": False,
+                }
+            )
+        else:
+            item = event_out(event, follows.get(event.id))
+        items.append(item)
+    return EventListOut(items=items, total=total)
 
 
 def no_store(response: Response) -> None:
@@ -155,7 +207,121 @@ def list_events(
         ordering = (Event.starts_at.desc(), Event.id.desc())
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     rows = db.scalars(query.order_by(*ordering).limit(limit).offset(offset)).all()
-    return event_list_out(rows, total)
+    return event_list_out(rows, total, db, _user.id)
+
+
+@router.get("/events/mine", response_model=EventListOut)
+def list_my_events(
+    response: Response,
+    period: str = Query("upcoming", pattern="^(upcoming|past|all)$"),
+    limit: int = Query(12, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EventListOut:
+    no_store(response)
+    now = now_utc()
+    query = (
+        select(Event)
+        .join(EventFollow, EventFollow.event_id == Event.id)
+        .where(EventFollow.user_id == user.id, EventFollow.is_active.is_(True))
+    )
+    if period == "upcoming":
+        query = query.where(
+            Event.publication_status == "published",
+            Event.ends_at >= now,
+        )
+        ordering = (Event.starts_at.asc(), Event.id.asc())
+    elif period == "past":
+        query = query.where(or_(Event.publication_status == "cancelled", Event.ends_at < now))
+        ordering = (Event.starts_at.desc(), Event.id.desc())
+    else:
+        ordering = (Event.starts_at.desc(), Event.id.desc())
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = db.scalars(query.order_by(*ordering).limit(limit).offset(offset)).all()
+    return event_list_out(rows, total, db, user.id, redact_withdrawn=True)
+
+
+@router.put("/events/{event_id}/follow", response_model=EventFollowOut)
+def follow_event(
+    event_id: int,
+    payload: EventFollowPayload,
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EventFollowOut:
+    no_store(response)
+    event = db.get(Event, event_id)
+    if event is None or event.publication_status not in {"published", "cancelled"}:
+        raise HTTPException(404, "活动不存在")
+    if event.publication_status == "cancelled":
+        raise HTTPException(409, "已取消的活动不能新关注")
+    follow = db.scalar(
+        select(EventFollow).where(EventFollow.user_id == user.id, EventFollow.event_id == event.id)
+    )
+    was_active = bool(follow and follow.is_active)
+    if follow is None:
+        follow = EventFollow(user_id=user.id, event_id=event.id)
+        db.add(follow)
+    follow.is_active = True
+    follow.reminder_preference = payload.reminder_preference
+    db.flush()
+    # Followed within the active reminder window: send the nearest eligible
+    # reminder immediately. The unique constraint makes retries idempotent.
+    event_start = as_utc(event.starts_at)
+    if not was_active and event_start and event_start > now_utc():
+        remaining = event_start - now_utc()
+        offset = None
+        if payload.reminder_preference == "24h_1h":
+            offset = (
+                1
+                if remaining <= timedelta(hours=1)
+                else 24
+                if remaining <= timedelta(hours=24)
+                else None
+            )
+        elif payload.reminder_preference == "1h" and remaining <= timedelta(hours=1):
+            offset = 1
+        if offset is not None:
+            already_sent = db.scalar(
+                select(EventNotification.id).where(
+                    EventNotification.user_id == user.id,
+                    EventNotification.event_id == event.id,
+                    EventNotification.kind == "event_reminder",
+                    EventNotification.event_start_snapshot == event_start,
+                    EventNotification.reminder_offset == offset,
+                )
+            )
+            if not already_sent:
+                db.add(
+                    EventNotification(
+                        user_id=user.id,
+                        event_id=event.id,
+                        kind="event_reminder",
+                        message=f"活动将于{offset}小时后开始。",
+                        event_start_snapshot=event_start,
+                        reminder_offset=offset,
+                    )
+                )
+    db.commit()
+    return EventFollowOut(followed=True, reminder_preference=follow.reminder_preference)
+
+
+@router.delete("/events/{event_id}/follow", response_model=EventFollowOut)
+def unfollow_event(
+    event_id: int,
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> EventFollowOut:
+    no_store(response)
+    follow = db.scalar(
+        select(EventFollow).where(EventFollow.user_id == user.id, EventFollow.event_id == event_id)
+    )
+    if follow and follow.is_active:
+        follow.is_active = False
+        db.commit()
+    return EventFollowOut(followed=False, reminder_preference="1h")
 
 
 @router.get("/events/{event_id}", response_model=EventOut)
@@ -169,7 +335,14 @@ def get_event(
     event = db.get(Event, event_id)
     if event is None or event.publication_status == "draft":
         raise HTTPException(404, "活动不存在")
-    return event_out(event)
+    follow = db.scalar(
+        select(EventFollow).where(
+            EventFollow.user_id == _user.id,
+            EventFollow.event_id == event.id,
+            EventFollow.is_active.is_(True),
+        )
+    )
+    return event_out(event, follow)
 
 
 @router.get("/events/{event_id}/calendar.ics")
@@ -276,12 +449,26 @@ def update_event(
         raise HTTPException(404, "活动不存在")
     if event.publication_status == "cancelled":
         raise HTTPException(409, "已取消的活动不能编辑")
+    followers_notified = 0
+    before = {field: getattr(event, field) for field in TRACKED_FIELDS}
     apply_payload(event, payload)
     if event.publication_status == "published":
         require_publishable(event)
+        changed = [
+            field
+            for field in TRACKED_FIELDS
+            if (as_utc(before[field]) if isinstance(before[field], datetime) else before[field])
+            != (
+                as_utc(getattr(event, field))
+                if isinstance(getattr(event, field), datetime)
+                else getattr(event, field)
+            )
+        ]
+        if changed:
+            followers_notified = notify_followers(db, event, "event_changed", changed)
     db.commit()
     db.refresh(event)
-    return event_out(event)
+    return event_out(event, followers_notified=followers_notified)
 
 
 @admin_router.post("/{event_id}/publish", response_model=EventOut)
@@ -297,8 +484,16 @@ def publish_event(
         raise HTTPException(404, "活动不存在")
     if event.publication_status == "cancelled":
         raise HTTPException(409, "已取消的活动不能重新发布")
+    previous_change = db.scalar(
+        select(EventChange)
+        .where(EventChange.event_id == event.id)
+        .order_by(EventChange.id.desc())
+        .limit(1)
+    )
     require_publishable(event)
     event.publication_status = "published"
+    if previous_change and previous_change.kind == "event_withdrawn":
+        notify_followers(db, event, "event_republished")
     db.commit()
     db.refresh(event)
     return event_out(event)
@@ -317,7 +512,10 @@ def withdraw_event(
         raise HTTPException(404, "活动不存在")
     if event.publication_status == "cancelled":
         raise HTTPException(409, "已取消的活动不能撤回为草稿")
+    was_published = event.publication_status == "published"
     event.publication_status = "draft"
+    if was_published:
+        notify_followers(db, event, "event_withdrawn")
     db.commit()
     db.refresh(event)
     return event_out(event)
@@ -339,6 +537,7 @@ def cancel_event(
         raise HTTPException(409, "只有已发布的活动可以取消")
     event.publication_status = "cancelled"
     event.cancellation_reason = payload.reason
+    notify_followers(db, event, "event_cancelled")
     db.commit()
     db.refresh(event)
     return event_out(event)

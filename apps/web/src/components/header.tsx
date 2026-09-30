@@ -19,6 +19,7 @@ function pageName(pathname: string): string {
   if (pathname === '/members') return '校友墙';
   if (pathname === '/articles') return '文章墙';
   if (pathname === '/events') return '活动中心';
+  if (pathname === '/events/mine') return '我的活动';
   if (/^\/events\/\d+$/.test(pathname)) return '活动详情';
   if (pathname === '/articles/new') return '写文章';
   if (/^\/articles\/\d+\/edit$/.test(pathname)) return '编辑文章';
@@ -35,6 +36,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [unreadAddress, setUnreadAddress] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const busy = status === 'loading' || status === 'connecting';
 
@@ -42,6 +44,7 @@ export function Header() {
   useEffect(() => {
     if (!user) {
       setUnread(0);
+      setUnreadAddress(null);
       return;
     }
     let cancelled = false;
@@ -49,7 +52,10 @@ export function Header() {
     api
       .notificationSummary(controller.signal)
       .then((data) => {
-        if (!cancelled) setUnread(data.unread);
+        if (!cancelled) {
+          setUnread(data.unread);
+          setUnreadAddress(user.address);
+        }
       })
       // 角标取不到就安静地保持原样，不打断浏览
       .catch(() => undefined);
@@ -61,10 +67,13 @@ export function Header() {
 
   // 消息页读到哪条就通知一次，省得等下一次跳转才更新
   useEffect(() => {
-    const sync = (event: Event) => setUnread((event as CustomEvent<number>).detail);
+    const sync = (event: Event) => {
+      setUnread((event as CustomEvent<number>).detail);
+      setUnreadAddress(user?.address ?? null);
+    };
     window.addEventListener(UNREAD_EVENT, sync);
     return () => window.removeEventListener(UNREAD_EVENT, sync);
-  }, []);
+  }, [user?.address]);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 760px)');
@@ -224,7 +233,7 @@ export function Header() {
             >
               <Icon name="bell" />
               消息提示
-              {unread > 0 && (
+              {user && unreadAddress === user.address && unread > 0 && (
                 <span className="nav-badge">{unread > 99 ? '99+' : unread}</span>
               )}
             </Link>
@@ -253,6 +262,11 @@ export function Header() {
             <Icon name="calendar" />
             活动中心
           </Link>
+          {user && <Link
+            className={pathname === '/events/mine' ? 'active' : ''}
+            href="/events/mine"
+            aria-current={pathname === '/events/mine' ? 'page' : undefined}
+          ><Icon name="calendar" />我的活动</Link>}
           {user ? (
             <Link
               className={pathname.startsWith('/u/') ? 'active' : ''}

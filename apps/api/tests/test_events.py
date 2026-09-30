@@ -137,7 +137,7 @@ def test_cancelled_events_stay_visible_but_cannot_register_or_download(client, a
     assert client.get(f"/api/events/{event_id}", headers=auth).status_code == 200
     assert client.get(f"/api/events/{event_id}/calendar.ics", headers=auth).status_code == 404
     past = client.get("/api/events?period=past", headers=auth).json()
-    assert past["total"] == 1
+    assert event_id in [item["id"] for item in past["items"]]
 
 
 def test_withdraw_hides_event_and_cancel_reason_is_required(client, admin_auth, auth):

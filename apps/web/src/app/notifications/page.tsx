@@ -3,79 +3,83 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
-import { Avatar } from '@/components/avatar';
 import { Icon } from '@/components/icon';
 import { useWallet } from '@/components/wallet-provider';
-import { api, emitUnread } from '@/lib/api';
-import { displayName, relativeTime } from '@/lib/format';
-import type { NotificationItem } from '@/types';
+import { ApiError, api, emitUnread } from '@/lib/api';
+import { relativeTime } from '@/lib/format';
+import type { InboxItem } from '@/types';
 
-const PAGE_SIZE = 20;
+type Category = 'all' | 'community' | 'event';
+const labels: Record<Category, string> = { all: '全部', community: '社区互动', event: '活动' };
 
-/** 消息提示：谁回复了你的帖子或评论。点开即视为已读，并跳到对应的帖子。 */
 export default function NotificationsPage() {
-  const { user, status, connect } = useWallet();
+  const { user, status, connect, logout } = useWallet();
   const address = user?.address ?? null;
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const addressRef = useRef(address);
+  addressRef.current = address;
+  const [category, setCategory] = useState<Category>('all');
+  const [items, setItems] = useState<InboxItem[]>([]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const paging = useRef(false);
   const pagingController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!address) {
       pagingController.current?.abort();
-      paging.current = false;
-      setLoadingMore(false);
+      pagingController.current = null;
+      setItems([]);
+      setLoadedKey(null);
+      setTotal(0);
+      setUnread(0);
       setLoading(false);
       return;
     }
-    let cancelled = false;
+    let active = true;
     const controller = new AbortController();
     pagingController.current?.abort();
-    paging.current = false;
-    setLoadingMore(false);
+    pagingController.current = null;
+    setItems([]);
+    setLoadedKey(null);
     setLoading(true);
     setError('');
-    api
-      .listNotifications(0, PAGE_SIZE, controller.signal)
+    api.inbox(category, 0, 20, controller.signal)
       .then((data) => {
-        if (cancelled) return;
+        if (!active) return;
         setItems(data.items);
+        setLoadedKey(`${address}:${category}`);
         setTotal(data.total);
         setUnread(data.unread);
         emitUnread(data.unread);
       })
-      .catch(() => {
-        if (!cancelled) setError('消息加载失败，请重试。');
+      .catch((cause) => {
+        if (!active || controller.signal.aborted) return;
+        if (cause instanceof ApiError && cause.status === 401) logout();
+        setLoadedKey(`${address}:${category}`);
+        setError('消息加载失败，请重试。');
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .finally(() => { if (active) setLoading(false); });
     return () => {
-      cancelled = true;
+      active = false;
       controller.abort();
       pagingController.current?.abort();
       pagingController.current = null;
     };
-  }, [address]);
+  }, [address, category, logout]);
 
   async function loadMore() {
-    if (paging.current) return;
-    paging.current = true;
+    if (loadingMore) return;
     const controller = new AbortController();
     pagingController.current = controller;
     setLoadingMore(true);
     setError('');
     try {
-      const data = await api.listNotifications(items.length, PAGE_SIZE, controller.signal);
-      setItems((current) => [
-        ...current,
-        ...data.items.filter((item) => !current.some((row) => row.id === item.id)),
-      ]);
+      const data = await api.inbox(category, items.length, 20, controller.signal);
+      if (controller.signal.aborted) return;
+      setItems((current) => [...current, ...data.items]);
       setTotal(data.total);
       setUnread(data.unread);
       emitUnread(data.unread);
@@ -84,31 +88,25 @@ export default function NotificationsPage() {
     } finally {
       if (pagingController.current === controller) {
         pagingController.current = null;
-        paging.current = false;
-        if (!controller.signal.aborted) setLoadingMore(false);
+        setLoadingMore(false);
       }
     }
   }
 
-  /**
-   * 点击就变灰：先本地置为已读再发请求，跳转不必等接口返回。
-   * 别人的消息不会出现在这里，失败时只是角标稍后自动纠正。
-   */
-  function open(item: NotificationItem) {
+  function markRead(item: InboxItem) {
     if (item.is_read) return;
-    setItems((current) =>
-      current.map((row) => (row.id === item.id ? { ...row, is_read: true } : row)),
-    );
+    setItems((current) => current.map((row) => row.source === item.source && row.id === item.id
+      ? { ...row, is_read: true } : row));
     const next = Math.max(0, unread - 1);
     setUnread(next);
     emitUnread(next);
-    api
-      .readNotification(item.id)
-      .then((data) => {
-        setUnread(data.unread);
-        emitUnread(data.unread);
-      })
-      .catch(() => setError('这条消息没能标记成已读，刷新页面后可以重试。'));
+    api.readInboxItem(item).then((data) => {
+      if (addressRef.current !== address) return;
+      setUnread(data.unread);
+      emitUnread(data.unread);
+    }).catch(() => {
+      if (addressRef.current === address) setError('这条消息没能标记成已读，刷新页面后可以重试。');
+    });
   }
 
   return (
@@ -116,116 +114,19 @@ export default function NotificationsPage() {
       <div className="page-heading">
         <div>
           <span className="eyebrow">STAY IN THE LOOP</span>
-          <h1>
-            消息提示<span className="heading-dot">.</span>
-          </h1>
-          <p>有人回复你的帖子或评论时，会在这里留下一条提醒。</p>
+          <h1>消息提示<span className="heading-dot">.</span></h1>
+          <p>社区互动与关注活动的更新都在这里。</p>
         </div>
-        {unread > 0 && (
-          <span className="notifications-unread">
-            <Icon name="bell" size={14} />
-            {unread} 条未读
-          </span>
-        )}
+        {unread > 0 && <span className="notifications-unread"><Icon name="bell" size={14} />{unread} 条未读</span>}
       </div>
-
-      {status === 'loading' ? (
-        <div role="status" className="card loading-card">
-          <div className="skeleton" />
-          <div className="skeleton" />
-          <span className="visually-hidden">加载消息中</span>
-        </div>
-      ) : !user ? (
-        <div className="card empty-state">
-          <div className="empty-art">
-            <Icon name="bell" size={28} />
-          </div>
-          <h3>登录后查看消息</h3>
-          <p>连接钱包，别人回复你时就能在这里看到。</p>
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={status === 'connecting'}
-            onClick={() => void connect()}
-          >
-            {status === 'connecting' ? '等待签名…' : '连接钱包'}
-          </button>
-        </div>
-      ) : (
-        <>
-          {error && (
-            <div role="alert" className="inline-notice">
-              {error}
-            </div>
-          )}
-          {loading ? (
-            <div role="status" className="card loading-card">
-              <div className="skeleton" />
-              <div className="skeleton" />
-              <span className="visually-hidden">加载消息中</span>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="card empty-state">
-              <div className="empty-art">
-                <Icon name="bell" size={28} />
-              </div>
-              <h3>还没有新的提醒</h3>
-              <p>去论坛聊聊，别人回复你时就会收到消息。</p>
-              <Link href="/forum" className="text-link">
-                逛逛社区论坛 <Icon name="arrow" size={16} />
-              </Link>
-            </div>
-          ) : (
-            <>
-              <ul className="notification-list">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <Link
-                      className={`notification-row${item.is_read ? ' is-read' : ''}`}
-                      href={`/forum/${item.post_id}#comment-${item.comment_id}`}
-                      onClick={() => open(item)}
-                    >
-                      <Avatar
-                        address={item.actor.address}
-                        nickname={item.actor.nickname}
-                        src={item.actor.avatar_url}
-                        size={38}
-                      />
-                      <div className="notification-body">
-                        <p className="notification-title">
-                          <strong>{displayName(item.actor)}</strong>
-                          {item.kind === 'post_comment' ? ' 评论了你的帖子 ' : ' 回复了你的评论 '}
-                          <span className="notification-post">{item.post_title}</span>
-                        </p>
-                        {item.excerpt && (
-                          <p className="notification-excerpt">{item.excerpt}</p>
-                        )}
-                        <time className="muted" dateTime={item.created_at}>
-                          {relativeTime(item.created_at)}
-                        </time>
-                      </div>
-                      {!item.is_read && (
-                        <>
-                          <span className="notification-flag" aria-hidden="true" />
-                          <span className="visually-hidden">未读</span>
-                        </>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {items.length < total && (
-                <button
-                  className="btn btn-ghost load-more"
-                  disabled={loadingMore}
-                  onClick={() => void loadMore()}
-                >
-                  {loadingMore ? '加载中…' : '加载更多消息'}
-                </button>
-              )}
-            </>
-          )}
-        </>
-      )}
+      {status === 'loading' ? <div role="status" className="card loading-card"><div className="skeleton" /></div> : !user ? (
+        <div className="card empty-state"><div className="empty-art"><Icon name="bell" size={28} /></div><h3>登录后查看消息</h3><p>连接钱包查看社区和活动提醒。</p><button className="btn btn-primary btn-sm" disabled={status === 'connecting'} onClick={() => void connect()}>{status === 'connecting' ? '等待签名…' : '连接钱包'}</button></div>
+      ) : <>
+        <div className="feed-tabs inbox-tabs" aria-label="消息类型">{(['all', 'community', 'event'] as Category[]).map((item) => <button key={item} className={category === item ? 'active' : ''} aria-pressed={category === item} onClick={() => setCategory(item)}>{labels[item]}</button>)}</div>
+        {error && <div role="alert" className="inline-notice">{error}</div>}
+        {loading || loadedKey !== `${address}:${category}` ? <div role="status" className="card loading-card"><div className="skeleton" /><div className="skeleton" /></div> : items.length ? <ul className="notification-list">{items.map((item) => <li key={`${item.source}-${item.id}`}><Link className={`notification-row${item.is_read ? ' is-read' : ''}`} href={item.href} onClick={() => markRead(item)}><span className="notification-icon"><Icon name={item.source === 'event' ? 'calendar' : 'bell'} size={18} /></span><div className="notification-body"><p className="notification-title"><strong>{item.title}</strong></p><p className="notification-excerpt">{item.message}{item.is_stale ? ' · 旧安排' : ''}</p><time className="muted" dateTime={item.created_at}>{relativeTime(item.created_at)}</time></div>{!item.is_read && <><span className="notification-flag" aria-hidden="true" /><span className="visually-hidden">未读</span></>}</Link></li>)}</ul> : <div className="card empty-state"><div className="empty-art"><Icon name="bell" size={28} /></div><h3>这里还没有消息</h3><p>{category === 'community' ? '有人回复你的帖子或评论时，会在这里提醒你。' : category === 'event' ? '关注活动后，活动变更和开场提醒会显示在这里。' : '社区互动和活动更新会显示在这里。'}</p><Link href={category === 'community' ? '/forum' : '/events'} className="text-link">{category === 'community' ? '逛逛社区论坛' : '查看活动中心'} <Icon name="arrow" size={16} /></Link></div>}
+        {items.length < total && <button className="btn btn-ghost load-more" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? '加载中…' : '加载更多'}</button>}
+      </>}
     </div>
   );
 }

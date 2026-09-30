@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         '/admin',
         '/api/',
         '/notifications',
+        '/events/mine',
         '/settings',
         '/articles/new',
         '/articles/*/edit',

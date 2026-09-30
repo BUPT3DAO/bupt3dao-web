@@ -107,7 +107,11 @@ export function AdminEventsPanel() {
       setSelected(result);
       setEditorOpen(true);
       setPayload(payloadFromEvent(result));
-      setNotice('活动已保存为草稿');
+      setNotice(result.publication_status === 'published'
+        ? result.followers_notified
+          ? `修改已发布，已通知 ${result.followers_notified} 位关注成员`
+          : '修改已发布'
+        : '活动已保存为草稿');
       setVersion((value) => value + 1);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '保存失败，请稍后重试');
