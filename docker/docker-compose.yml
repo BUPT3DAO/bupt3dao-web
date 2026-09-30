@@ -96,7 +96,11 @@ services:
     <<: *api
     command: ["python", "-m", "app.reminder_worker"]
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-c", "import os, time; assert time.time() - os.stat('/tmp/event-reminders.heartbeat').st_mtime < 150"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   web-blue:
     <<: *web

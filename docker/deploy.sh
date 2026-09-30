@@ -129,8 +129,12 @@ rollback() {
     compose "$previous" up -d --no-build --wait --wait-timeout 90 gateway || true
   fi
   if [[ -n "$previous" ]]; then
-    compose "$previous" up -d --no-build --wait --wait-timeout 90 api-reminders \
-      || compose "$SHA" stop api-reminders || true
+    if compose "$previous" config --services | grep -Fxq 'api-reminders'; then
+      compose "$previous" up -d --no-build --wait --wait-timeout 90 api-reminders \
+        || compose "$SHA" stop api-reminders || true
+    else
+      compose "$SHA" stop api-reminders || true
+    fi
   else
     compose "$SHA" stop api-reminders || true
   fi

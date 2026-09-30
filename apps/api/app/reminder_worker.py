@@ -2,6 +2,7 @@
 
 import logging
 import time
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,7 @@ ensure_schema(engine)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("event-reminders")
+HEARTBEAT = Path("/tmp/event-reminders.heartbeat")
 
 
 def run() -> None:
@@ -21,6 +23,7 @@ def run() -> None:
         try:
             with Session(engine) as db:
                 delivered = deliver_due_reminders(db)
+            HEARTBEAT.touch()
             logger.info("Reminder check complete; delivered=%s", delivered)
         except Exception:
             logger.exception("Reminder check failed; will retry next minute")
