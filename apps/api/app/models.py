@@ -238,9 +238,7 @@ class Event(Base):
     """仅社区登录用户可见的活动及其会后资料。"""
 
     __tablename__ = "events"
-    __table_args__ = (
-        Index("ix_events_status_start_id", "publication_status", "starts_at", "id"),
-    )
+    __table_args__ = (Index("ix_events_status_start_id", "publication_status", "starts_at", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(140), default="")

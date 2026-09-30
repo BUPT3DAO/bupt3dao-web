@@ -33,9 +33,7 @@ def event_payload(**overrides):
 
 
 def create_published(client, admin_auth, **overrides):
-    response = client.post(
-        "/api/admin/events", headers=admin_auth, json=event_payload(**overrides)
-    )
+    response = client.post("/api/admin/events", headers=admin_auth, json=event_payload(**overrides))
     assert response.status_code == 201, response.text
     event_id = response.json()["id"]
     published = client.post(f"/api/admin/events/{event_id}/publish", headers=admin_auth)
@@ -64,9 +62,7 @@ def test_events_require_login_and_do_not_cache_private_content(client, admin_aut
 
 
 def test_event_drafts_are_admin_only_and_admin_routes_require_admin(client, auth, admin_auth):
-    draft = client.post(
-        "/api/admin/events", headers=admin_auth, json=event_payload()
-    ).json()
+    draft = client.post("/api/admin/events", headers=admin_auth, json=event_payload()).json()
     event_id = draft["id"]
 
     public_items = client.get("/api/events", headers=auth).json()["items"]
@@ -98,13 +94,10 @@ def test_publish_defaults_registration_deadline_and_normalizes_utc(client, admin
         registration_deadline=None,
     )
     draft = client.post("/api/admin/events", headers=admin_auth, json=payload).json()
-    assert (
-        datetime.fromisoformat(draft["ends_at"])
-        > datetime.fromisoformat(draft["starts_at"])
-    ), draft
-    published = client.post(
-        f"/api/admin/events/{draft['id']}/publish", headers=admin_auth
+    assert datetime.fromisoformat(draft["ends_at"]) > datetime.fromisoformat(draft["starts_at"]), (
+        draft
     )
+    published = client.post(f"/api/admin/events/{draft['id']}/publish", headers=admin_auth)
 
     assert published.status_code == 200, published.text
     body = published.json()
