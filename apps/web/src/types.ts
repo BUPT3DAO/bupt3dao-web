@@ -67,6 +67,42 @@ export interface ArticlePayload {
   content: string;
 }
 
+export type EventState = 'draft' | 'upcoming' | 'ongoing' | 'ended' | 'cancelled';
+export type EventPublicationStatus = 'draft' | 'published' | 'cancelled';
+
+export interface CommunityEvent {
+  id: number;
+  title: string;
+  summary: string;
+  content: string;
+  organizer: string;
+  location: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  registration_url: string | null;
+  registration_deadline: string | null;
+  materials: string;
+  publication_status: EventPublicationStatus;
+  cancellation_reason: string;
+  event_state: EventState;
+  registration_open: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityEventPayload {
+  title: string;
+  summary: string;
+  content: string;
+  organizer: string;
+  location: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  registration_url: string | null;
+  registration_deadline: string | null;
+  materials: string;
+}
+
 export type MoveDirection = 'up' | 'down';
 
 /** 帖子列表项：不含正文，正文只在详情页取 */

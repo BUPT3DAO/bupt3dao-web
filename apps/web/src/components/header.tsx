@@ -18,6 +18,8 @@ function pageName(pathname: string): string {
   if (pathname === '/notifications') return '消息提示';
   if (pathname === '/members') return '校友墙';
   if (pathname === '/articles') return '文章墙';
+  if (pathname === '/events') return '活动中心';
+  if (/^\/events\/\d+$/.test(pathname)) return '活动详情';
   if (pathname === '/articles/new') return '写文章';
   if (/^\/articles\/\d+\/edit$/.test(pathname)) return '编辑文章';
   if (/^\/articles\/\d+$/.test(pathname)) return '文章';
@@ -242,6 +244,14 @@ export function Header() {
           >
             <Icon name="book" />
             文章墙
+          </Link>
+          <Link
+            className={pathname.startsWith('/events') ? 'active' : ''}
+            href="/events"
+            aria-current={pathname.startsWith('/events') ? 'page' : undefined}
+          >
+            <Icon name="calendar" />
+            活动中心
           </Link>
           {user ? (
             <Link

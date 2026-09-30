@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from app.models import MAX_PROFILE_LINKS
 
@@ -11,6 +11,8 @@ POST_TITLE_MAX_LENGTH = 140
 POST_CONTENT_MAX_LENGTH = 2000
 COMMENT_CONTENT_MAX_LENGTH = 2000
 ARTICLE_CONTENT_MAX_LENGTH = 20000
+EVENT_CONTENT_MAX_LENGTH = 20000
+EVENT_MATERIALS_MAX_LENGTH = 20000
 ANNOUNCEMENT_MAX_LENGTH = 5000
 
 # 帖子板块；空字符串表示「全部动态」
@@ -18,13 +20,15 @@ POST_TOPICS = ("技术交流", "项目共建", "校园日常")
 
 
 def _as_utc(value: datetime) -> datetime:
-    """SQLite 读回的 datetime 不带时区，这里统一按 UTC 补上，避免前端解析成当地时间。"""
-    if isinstance(value, datetime) and value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+    """统一传入时间为 UTC，兼容 SQLite 读回的不带时区值。"""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
     return value
 
 
-UTCDateTime = Annotated[datetime, BeforeValidator(_as_utc)]
+UTCDateTime = Annotated[datetime, AfterValidator(_as_utc)]
 
 
 class ProfileLink(BaseModel):
@@ -375,3 +379,65 @@ class ArticleMoveUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     direction: Literal["up", "down"]
+
+
+class EventPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(default="", max_length=140)
+    summary: str = Field(default="", max_length=300)
+    content: str = Field(default="", max_length=EVENT_CONTENT_MAX_LENGTH)
+    organizer: str = Field(default="", max_length=120)
+    location: str = Field(default="", max_length=200)
+    starts_at: UTCDateTime | None = None
+    ends_at: UTCDateTime | None = None
+    registration_url: str | None = Field(default=None, max_length=500)
+    registration_deadline: UTCDateTime | None = None
+    materials: str = Field(default="", max_length=EVENT_MATERIALS_MAX_LENGTH)
+
+    @field_validator("title", "content", "organizer", "location", "summary", "materials")
+    @classmethod
+    def strip_event_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("registration_url")
+    @classmethod
+    def validate_registration_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        url = value.strip()
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("报名链接必须是有效的 HTTPS 地址")
+        return url
+
+
+class EventCancelPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class EventOut(BaseModel):
+    id: int
+    title: str
+    summary: str
+    content: str
+    organizer: str
+    location: str
+    starts_at: UTCDateTime | None
+    ends_at: UTCDateTime | None
+    registration_url: str | None
+    registration_deadline: UTCDateTime | None
+    materials: str
+    publication_status: Literal["draft", "published", "cancelled"]
+    cancellation_reason: str
+    event_state: Literal["upcoming", "ongoing", "ended", "cancelled", "draft"]
+    registration_open: bool
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
+
+
+class EventListOut(BaseModel):
+    items: list[EventOut]
+    total: int

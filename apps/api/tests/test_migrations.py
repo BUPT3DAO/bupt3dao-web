@@ -2,7 +2,7 @@ from sqlalchemy import Index, create_engine, inspect
 
 from app.db import Base
 from app.migrations import ensure_schema
-from app.models import Article, Comment, Notification, Post, User
+from app.models import Article, Comment, Event, Notification, Post, User
 
 
 def test_startup_migration_adds_compound_indexes_to_existing_schema() -> None:
@@ -18,6 +18,7 @@ def test_startup_migration_adds_compound_indexes_to_existing_schema() -> None:
                 "ix_notifications_user_created_id",
                 "ix_notifications_user_is_read",
             ),
+            "events": ("ix_events_status_start_id",),
         }
         models = {
             "users": User,
@@ -25,6 +26,7 @@ def test_startup_migration_adds_compound_indexes_to_existing_schema() -> None:
             "comments": Comment,
             "articles": Article,
             "notifications": Notification,
+            "events": Event,
         }
         for table_name, index_names in expected.items():
             for index_name in index_names:

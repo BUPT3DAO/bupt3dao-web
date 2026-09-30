@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { HomeAnnouncement } from '@/components/home-announcement';
 import { HomeGroupQrcode } from '@/components/home-group-qrcode';
+import { HomeEvents } from '@/components/home-events';
 import { Icon } from '@/components/icon';
 import { getServerApi } from '@/lib/server-api';
 import type { SiteConfig } from '@/types';
@@ -84,6 +85,7 @@ export default async function HomePage() {
           </span>
         </Link>
       </div>
+      <HomeEvents />
       <footer className="home-footer">
         <span>保持好奇，持续共建。</span>
         <div>
