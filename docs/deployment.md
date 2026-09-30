@@ -111,7 +111,7 @@ sudo chmod 600 /opt/bupt3dao/.env
 
 ### 活动提醒进程
 
-`api-reminders` 使用与 API 相同的镜像、环境变量和 `api-data` 数据卷，每分钟检查一次关注活动的到期提醒。它不对外开放端口；正常部署会在新 API 健康后启动或更新这个单实例服务，失败回滚时会恢复上一版的提醒进程。日志可通过 `docker compose logs --tail=100 api-reminders` 查看。进程遇到单次数据库或投递错误会记录堆栈并在下一分钟重试。
+`api-reminders` 使用与 API 相同的镜像、环境变量和 `api-data` 数据卷，每分钟检查一次关注活动的到期提醒。它不对外开放端口；正常部署会在新 API 健康后启动或更新这个单实例服务。进程完成一次成功检查后更新容器内的心跳文件；超过 150 秒未成功检查时健康检查会失败，部署会回退。日志可通过 `docker compose logs --tail=100 api-reminders` 查看。进程遇到单次数据库或投递错误会记录堆栈并在下一分钟重试。回退时若上一版尚无提醒服务，则停止本次启动的提醒进程。
 
 回滚到二期之前的发布版本时，先用当前发布目录的 compose 文件停止 `api-reminders`，再运行旧版本部署脚本。回滚保留 `event_follows`、`event_notifications` 和 `event_changes` 表，旧版应用忽略这些表；回滚前的 SQLite 快照仍由部署脚本自动生成。
 

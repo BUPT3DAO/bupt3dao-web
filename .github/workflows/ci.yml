@@ -126,6 +126,18 @@ jobs:
           docker logs bupt3dao-api-ci
           exit 1
 
+      - name: 启动并探测提醒进程
+        if: matrix.app == 'api'
+        run: |
+          set -euo pipefail
+          export TAG=ci ENVIRONMENT=local
+          export JWT_SECRET=test-only-secret-for-reminder-smoke-test
+          docker tag bupt3dao/api:ci ghcr.io/bupt3dao/bupt3dao-web/api:ci
+          reminder_compose=(docker compose --project-name bupt3dao-reminder-ci -f docker/docker-compose.yml)
+          trap '"${reminder_compose[@]}" down -v >/dev/null 2>&1 || true' EXIT
+          "${reminder_compose[@]}" up -d --no-build --wait --wait-timeout 90 api-reminders
+          "${reminder_compose[@]}" ps api-reminders
+
       - name: 启动并探测 Web 容器
         if: matrix.app == 'web'
         run: |
