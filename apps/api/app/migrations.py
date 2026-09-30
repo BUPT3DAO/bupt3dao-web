@@ -7,7 +7,7 @@ from sqlalchemy import Engine, Index, func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.models import Post, ProfileDetail
+from app.models import Event, Post, ProfileDetail  # noqa: F401
 
 # 表名 -> 需要补齐的列（列名, DDL 片段）
 _LIGHT_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -55,7 +55,7 @@ def ensure_schema(engine: Engine) -> None:
     Base.metadata.create_all(bind=engine)
     _add_missing_columns(engine)
     # create_all 不会给已存在的表补建新增索引；逐个检查以支持旧库平滑升级。
-    for table_name in ("users", "posts", "comments", "articles", "notifications"):
+    for table_name in ("users", "posts", "comments", "articles", "notifications", "events"):
         table = Base.metadata.tables[table_name]
         for index in table.indexes:
             index.create(bind=engine, checkfirst=True)

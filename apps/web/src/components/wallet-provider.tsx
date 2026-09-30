@@ -103,6 +103,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       const changedToken = event.newValue;
+      // Hide the old account's private UI while the new token is verified.
+      setUser(null);
+      setAddress(null);
+      setStatus('loading');
       const controller = new AbortController();
       activeRequest = controller;
       void api

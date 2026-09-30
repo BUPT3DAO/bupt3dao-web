@@ -188,6 +188,32 @@ Authorization: Bearer <token>
 | PUT | `/api/articles/{article_id}` | 登录 | 编辑文章。仅作者本人或管理员 |
 | DELETE | `/api/articles/{article_id}` | 登录 | 删除文章。仅作者本人或管理员 |
 
+## 活动 `events`
+
+活动详情与列表只提供给已登录且未封禁的成员；这些接口响应设置 `Cache-Control: private, no-store`。首次钱包签名登录会自动注册。
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/events` | 登录 | 活动列表。query：`period=upcoming|past`、`limit`、`offset`。默认 upcoming，包含进行中与未开始活动；past 包含已结束与已取消活动 |
+| GET | `/api/events/{event_id}` | 登录 | 活动详情。草稿与不存在的活动均返回 404 |
+| GET | `/api/events/{event_id}/calendar.ics` | 登录 | 下载已发布活动的 iCalendar 文件；草稿与已取消活动返回 404 |
+
+`EventOut` 提供 `publication_status`（`draft / published / cancelled`）、按时间计算的 `event_state`（`upcoming / ongoing / ended / cancelled / draft`）和 `registration_open`。时间按 ISO 8601 携带时区，数据库按 UTC 保存。管理员界面输入北京时间（UTC+8）。报名链接只接受 HTTPS；报名截止时间省略时默认等于活动开始时间。
+
+## 活动管理 `admin/events`
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/admin/events` | 管理员查看所有活动状态。query：`q`、`limit`、`offset` |
+| GET | `/api/admin/events/{event_id}` | 管理员查看草稿或公开活动 |
+| POST | `/api/admin/events` | 创建草稿。body 包含 `title`、`summary`、`content`、`organizer`、`location`、`starts_at`、`ends_at`、`registration_url`、`registration_deadline`、`materials` |
+| PUT | `/api/admin/events/{event_id}` | 更新草稿或已发布活动；已取消活动不可编辑 |
+| POST | `/api/admin/events/{event_id}/publish` | 发布；要求标题、介绍、主办方、地点和起止时间完整，结束时间晚于开始时间 |
+| POST | `/api/admin/events/{event_id}/withdraw` | 撤回为草稿；公开详情随即不可见 |
+| POST | `/api/admin/events/{event_id}/cancel` | 取消已发布活动并保留公开记录。body：`{reason}`，必填 |
+
+所有管理接口都要求管理员身份。活动不保存站内报名名单；报名链接由外部平台处理。
+
 ## 成员风采 `members`
 
 | 方法 | 路径 | 权限 | 说明 |

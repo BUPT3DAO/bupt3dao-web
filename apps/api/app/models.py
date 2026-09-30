@@ -234,6 +234,33 @@ class Article(Base):
     author: Mapped[User] = relationship(back_populates="articles")
 
 
+class Event(Base):
+    """仅社区登录用户可见的活动及其会后资料。"""
+
+    __tablename__ = "events"
+    __table_args__ = (Index("ix_events_status_start_id", "publication_status", "starts_at", "id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(140), default="")
+    summary: Mapped[str] = mapped_column(String(300), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    organizer: Mapped[str] = mapped_column(String(120), default="")
+    location: Mapped[str] = mapped_column(String(200), default="")
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    registration_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    registration_deadline: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    materials: Mapped[str] = mapped_column(Text, default="")
+    publication_status: Mapped[str] = mapped_column(String(20), default="draft")
+    cancellation_reason: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class SiteConfig(Base):
     """站点级配置，全站只有 SITE_CONFIG_ID 这一行。
 

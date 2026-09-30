@@ -7,6 +7,8 @@ import type {
   Challenge,
   Comment,
   CommentPage,
+  CommunityEvent,
+  CommunityEventPayload,
   Member,
   MemberDetails,
   MoveDirection,
@@ -96,6 +98,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return undefined as T;
   }
   return (await response.json()) as T;
+}
+
+async function download(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`/api${path}`, { headers, cache: 'no-store' });
+  if (!response.ok) throw new ApiError(await readError(response), response.status);
+  return response.blob();
 }
 
 export const api = {
@@ -243,6 +254,59 @@ export const api = {
     request<void>(`/admin/articles/${id}/move`, {
       method: 'POST',
       body: JSON.stringify({ direction }),
+    }),
+
+  listEvents: (period: 'upcoming' | 'past' = 'upcoming', offset = 0, limit = 12, signal?: AbortSignal) =>
+    request<PageResult<CommunityEvent>>(
+      `/events?period=${period}&offset=${offset}&limit=${limit}`,
+      { signal, cache: 'no-store' },
+    ),
+
+  getEvent: (id: number, signal?: AbortSignal) =>
+    request<CommunityEvent>(`/events/${id}`, { signal, cache: 'no-store' }),
+
+  downloadEventCalendar: (id: number) => download(`/events/${id}/calendar.ics`),
+
+  adminEvents: (q = '', offset = 0, signal?: AbortSignal) =>
+    request<PageResult<CommunityEvent>>(
+      `/admin/events?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
+      { signal, cache: 'no-store' },
+    ),
+
+  adminEvent: (id: number, signal?: AbortSignal) =>
+    request<CommunityEvent>(`/admin/events/${id}`, { signal, cache: 'no-store' }),
+
+  createEvent: (payload: CommunityEventPayload) =>
+    request<CommunityEvent>('/admin/events', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }),
+
+  updateEvent: (id: number, payload: CommunityEventPayload) =>
+    request<CommunityEvent>(`/admin/events/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }),
+
+  publishEvent: (id: number) =>
+    request<CommunityEvent>(`/admin/events/${id}/publish`, {
+      method: 'POST',
+      cache: 'no-store',
+    }),
+
+  withdrawEvent: (id: number) =>
+    request<CommunityEvent>(`/admin/events/${id}/withdraw`, {
+      method: 'POST',
+      cache: 'no-store',
+    }),
+
+  cancelEvent: (id: number, reason: string) =>
+    request<CommunityEvent>(`/admin/events/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      cache: 'no-store',
     }),
 
   uploadAvatar: (file: File) => {
