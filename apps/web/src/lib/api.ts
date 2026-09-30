@@ -9,6 +9,8 @@ import type {
   CommentPage,
   CommunityEvent,
   CommunityEventPayload,
+  InboxFeed,
+  InboxItem,
   Member,
   MemberDetails,
   MoveDirection,
@@ -208,7 +210,17 @@ export const api = {
     request<NotificationFeed>(`/notifications?offset=${offset}&limit=${limit}`, { signal }),
 
   notificationSummary: (signal?: AbortSignal) =>
-    request<NotificationSummary>('/notifications/summary', { signal }),
+    request<NotificationSummary>('/inbox/summary', { signal, cache: 'no-store' }),
+
+  inbox: (category: 'all' | 'community' | 'event' = 'all', offset = 0, limit = 20, signal?: AbortSignal) =>
+    request<InboxFeed>(`/inbox?category=${category}&offset=${offset}&limit=${limit}`, {
+      signal, cache: 'no-store',
+    }),
+
+  readInboxItem: (item: Pick<InboxItem, 'source' | 'id'>) =>
+    request<NotificationSummary>(`/inbox/${item.source}/${item.id}/read`, {
+      method: 'POST', cache: 'no-store',
+    }),
 
   readNotification: (id: number) =>
     request<NotificationSummary>(`/notifications/${id}/read`, { method: 'POST' }),
@@ -261,6 +273,22 @@ export const api = {
       `/events?period=${period}&offset=${offset}&limit=${limit}`,
       { signal, cache: 'no-store' },
     ),
+
+  myEvents: (period: 'upcoming' | 'past' | 'all' = 'upcoming', offset = 0, limit = 12, signal?: AbortSignal) =>
+    request<PageResult<CommunityEvent>>(
+      `/events/mine?period=${period}&offset=${offset}&limit=${limit}`,
+      { signal, cache: 'no-store' },
+    ),
+
+  followEvent: (id: number, reminderPreference: 'none' | '1h' | '24h_1h') =>
+    request<{ followed: boolean; reminder_preference: 'none' | '1h' | '24h_1h' }>(`/events/${id}/follow`, {
+      method: 'PUT', body: JSON.stringify({ reminder_preference: reminderPreference }), cache: 'no-store',
+    }),
+
+  unfollowEvent: (id: number) =>
+    request<{ followed: boolean; reminder_preference: 'none' | '1h' | '24h_1h' }>(`/events/${id}/follow`, {
+      method: 'DELETE', cache: 'no-store',
+    }),
 
   getEvent: (id: number, signal?: AbortSignal) =>
     request<CommunityEvent>(`/events/${id}`, { signal, cache: 'no-store' }),

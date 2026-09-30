@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -259,6 +259,71 @@ class Event(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+class EventFollow(Base):
+    """成员关注的活动与开场提醒偏好。取消关注保留行以支持重新关注。"""
+
+    __tablename__ = "event_follows"
+    __table_args__ = (
+        UniqueConstraint("user_id", "event_id", name="uq_event_follows_user_event"),
+        Index("ix_event_follows_active_event", "event_id", "is_active"),
+        Index("ix_event_follows_user_active", "user_id", "is_active"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    reminder_preference: Mapped[str] = mapped_column(String(20), default="1h")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class EventNotification(Base):
+    """活动变更和开始提醒；event_start_snapshot 用于改期后区分旧提醒。"""
+
+    __tablename__ = "event_notifications"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "event_id",
+            "kind",
+            "event_start_snapshot",
+            "reminder_offset",
+            name="uq_event_notification_reminder",
+        ),
+        Index("ix_event_notifications_user_created", "user_id", "created_at", "id"),
+        Index("ix_event_notifications_user_read", "user_id", "is_read"),
+        Index("ix_event_notifications_event", "event_id", "kind"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(30))
+    message: Mapped[str] = mapped_column(String(500), default="")
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, default=list)
+    event_start_snapshot: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_offset: Mapped[int | None] = mapped_column(nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    is_stale: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EventChange(Base):
+    """活动已发布后的变更版本，作为通知记录与审计依据。"""
+
+    __tablename__ = "event_changes"
+    __table_args__ = (Index("ix_event_changes_event_created", "event_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(30))
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class SiteConfig(Base):

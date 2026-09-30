@@ -92,6 +92,12 @@ services:
   api-green:
     <<: *api
 
+  api-reminders:
+    <<: *api
+    command: ["python", "-m", "app.reminder_worker"]
+    healthcheck:
+      disable: true
+
   web-blue:
     <<: *web
     # 合并锚点不会深合并 environment，这里必须完整重写

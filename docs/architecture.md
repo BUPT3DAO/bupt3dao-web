@@ -49,6 +49,7 @@
 | `/articles/new`、`/articles/[id]/edit` | 新建 / 编辑文章 |
 | `/members` | 成员风采 |
 | `/notifications` | 消息提示（谁回复了你的帖子 / 评论，登录后可见） |
+| `/events`、`/events/[id]`、`/events/mine` | 登录可见的活动列表、详情、关注列表与提醒设置 |
 | `/u/[address]` | 用户公开主页（按钱包地址） |
 | `/settings` | 个人资料设置 |
 | `/guide` | 新手指引 |
@@ -139,6 +140,9 @@ get_current_user   Bearer JWT → User；未登录/失效/已封禁分别 401、
 | `comments` | 帖子评论 | `post_id + parent_id + created_at + id` 复合索引支持评论树读取；`parent_id` 自引用，`depth` 最多 3 级（`MAX_COMMENT_DEPTH`） |
 | `articles` | Markdown 文章 | `is_pinned` 建索引；置顶按 `sort_order`，其余按发布时间倒序 |
 | `notifications` | 站内消息 | `user_id + created_at + id` 支持消息时间线，`user_id + is_read` 支持未读计数；`actor_id` 触发人、`post_id` + `comment_id` + `kind` |
+| `event_follows` | 活动关注和开场提醒偏好 | `user_id + event_id` 唯一；按活动状态和成员状态检索关注 |
+| `event_notifications` | 活动变更与提醒 | 活动开始时间快照与提醒档位唯一去重；过期安排以 `is_stale` 标记 |
+| `event_changes` | 活动变更版本 | 按活动和递增 id 记录已发布活动变更，支持撤回后重新发布判断 |
 | `profile_details` | 资料扩展 | 主键即 `user_id`；入学年份、学院、专业、学校、个人链接（JSON，最多 5 条） |
 | `user_moderation` | 封禁状态 | 主键即 `user_id` |
 | `featured_members` | 成员风采 | 主键即 `user_id`，带 `sort_order` |

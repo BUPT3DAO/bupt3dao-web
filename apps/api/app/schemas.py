@@ -418,6 +418,17 @@ class EventCancelPayload(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class EventFollowPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reminder_preference: Literal["none", "1h", "24h_1h"] = "1h"
+
+
+class EventFollowOut(BaseModel):
+    followed: bool
+    reminder_preference: Literal["none", "1h", "24h_1h"] = "1h"
+
+
 class EventOut(BaseModel):
     id: int
     title: str
@@ -434,6 +445,9 @@ class EventOut(BaseModel):
     cancellation_reason: str
     event_state: Literal["upcoming", "ongoing", "ended", "cancelled", "draft"]
     registration_open: bool
+    followed: bool = False
+    reminder_preference: Literal["none", "1h", "24h_1h"] | None = None
+    followers_notified: int = 0
     created_at: UTCDateTime
     updated_at: UTCDateTime
 
@@ -441,3 +455,25 @@ class EventOut(BaseModel):
 class EventListOut(BaseModel):
     items: list[EventOut]
     total: int
+
+
+class InboxItem(BaseModel):
+    source: Literal["community", "event"]
+    id: int
+    kind: str
+    is_read: bool
+    created_at: UTCDateTime
+    title: str
+    message: str
+    href: str
+    is_stale: bool = False
+
+
+class InboxListOut(BaseModel):
+    items: list[InboxItem]
+    total: int
+    unread: int
+
+
+class InboxSummaryOut(BaseModel):
+    unread: int

@@ -86,6 +86,9 @@ export interface CommunityEvent {
   cancellation_reason: string;
   event_state: EventState;
   registration_open: boolean;
+  followed: boolean;
+  reminder_preference: 'none' | '1h' | '24h_1h' | null;
+  followers_notified?: number;
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +170,22 @@ export interface NotificationFeed extends PageResult<NotificationItem> {
 }
 
 export interface NotificationSummary {
+  unread: number;
+}
+
+export interface InboxItem {
+  source: 'community' | 'event';
+  id: number;
+  kind: string;
+  is_read: boolean;
+  created_at: string;
+  title: string;
+  message: string;
+  href: string;
+  is_stale: boolean;
+}
+
+export interface InboxFeed extends PageResult<InboxItem> {
   unread: number;
 }
 

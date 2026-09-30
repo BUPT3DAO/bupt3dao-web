@@ -137,6 +137,16 @@ Authorization: Bearer <token>
 | GET | `/api/notifications/summary` | 登录 | 只取未读数，供侧边栏角标轮询 |
 | POST | `/api/notifications/{notification_id}/read` | 登录 | 标记单条已读。别人的消息一律返回 404 |
 
+## 统一消息 `inbox`
+
+新前端使用统一消息接口展示社区互动和活动通知；旧 `notifications` 接口继续保留兼容。所有接口仅当前登录且未封禁的成员可访问，并返回 `Cache-Control: private, no-store`。
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/inbox` | 登录 | 合并消息时间线。query：`category=all|community|event`、`limit`、`offset` |
+| GET | `/api/inbox/summary` | 登录 | 合并后的未读数，供导航角标使用 |
+| POST | `/api/inbox/{source}/{id}/read` | 登录 | `source=community|event`；只能标记自己的消息 |
+
 列表在通用分页结构上多返回一个 `unread`（未读总数），因此前端拉一次列表就能同时刷新角标：
 
 ```json
@@ -195,10 +205,15 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
 | GET | `/api/events` | 登录 | 活动列表。query：`period=upcoming|past`、`limit`、`offset`。默认 upcoming，包含进行中与未开始活动；past 包含已结束与已取消活动 |
+| GET | `/api/events/mine` | 登录 | 当前成员关注的活动。query：`period=upcoming|past|all`、`limit`、`offset`。撤回活动仅返回通用占位信息 |
 | GET | `/api/events/{event_id}` | 登录 | 活动详情。草稿与不存在的活动均返回 404 |
 | GET | `/api/events/{event_id}/calendar.ics` | 登录 | 下载已发布活动的 iCalendar 文件；草稿与已取消活动返回 404 |
+| PUT | `/api/events/{event_id}/follow` | 登录 | 关注活动或更新提醒。body：`{reminder_preference: "none"|"1h"|"24h_1h"}`；默认 `1h` |
+| DELETE | `/api/events/{event_id}/follow` | 登录 | 取消关注；历史通知保留，之后不再发送活动通知 |
 
 `EventOut` 提供 `publication_status`（`draft / published / cancelled`）、按时间计算的 `event_state`（`upcoming / ongoing / ended / cancelled / draft`）和 `registration_open`。时间按 ISO 8601 携带时区，数据库按 UTC 保存。管理员界面输入北京时间（UTC+8）。报名链接只接受 HTTPS；报名截止时间省略时默认等于活动开始时间。
+
+活动列表和详情额外返回 `followed` 与 `reminder_preference`。活动变更、取消、撤回、重新发布和资料更新会通知当前关注成员；开场提醒由部署中的独立进程每分钟检查。撤回期间，个人活动和历史消息不会暴露活动详情。
 
 ## 活动管理 `admin/events`
 

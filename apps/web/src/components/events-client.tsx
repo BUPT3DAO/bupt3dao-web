@@ -86,6 +86,7 @@ export function EventsClient() {
           <button className={period === 'past' ? 'active' : ''} aria-pressed={period === 'past'} onClick={() => { setPeriod('past'); setPage(0); }}>往期活动</button>
         </div>
         <span className="muted">共 {loadedAddress === user.address ? total : 0} 场</span>
+        <Link className="text-link" href="/events/mine">我的活动 <Icon name="arrow" size={15} /></Link>
       </div>
       {error && <div className="inline-notice" role="alert">{error}<button className="text-link" onClick={() => setVersion((n) => n + 1)}>重试</button></div>}
       {loading || loadedAddress !== user.address ? <div className="card loading-card"><div className="skeleton" /><div className="skeleton" /></div> : events.length ? (

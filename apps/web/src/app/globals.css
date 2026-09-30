@@ -5044,6 +5044,19 @@ html[data-theme='dark'] .skeleton {
   background: var(--surface-hover);
   border-color: var(--accent);
 }
+.notification-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.inbox-tabs {
+  margin-bottom: 14px;
+}
 /* 读过的消息整条压灰，和未读一眼能分开 */
 .notification-row.is-read {
   background: var(--surface-soft);
@@ -5291,6 +5304,30 @@ html[data-theme='dark'] .skeleton {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.event-follow-control {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding-top: 4px;
+}
+.event-reminder-setting {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+.event-reminder-setting small,
+.event-follow-error {
+  color: var(--muted);
+  font-size: 10px;
+}
+.event-follow-error {
+  color: var(--danger);
 }
 .events-gate {
   display: flex;
