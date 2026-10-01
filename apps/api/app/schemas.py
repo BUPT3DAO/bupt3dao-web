@@ -104,6 +104,7 @@ class ProfileUpdate(BaseModel):
 
 class NonceRequest(BaseModel):
     address: str
+    chain_id: int = 1
 
 
 class NonceResponse(BaseModel):

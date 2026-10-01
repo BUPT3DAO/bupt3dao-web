@@ -13,6 +13,7 @@ from app.routers import (
     articles,
     auth,
     events,
+    game,
     inbox,
     members,
     notifications,
@@ -47,6 +48,7 @@ api.include_router(users.router)
 api.include_router(members.router)
 api.include_router(articles.router)
 api.include_router(events.router)
+api.include_router(game.router)
 api.include_router(site.router)
 api.include_router(admin.router)
 api.include_router(events.admin_router)
