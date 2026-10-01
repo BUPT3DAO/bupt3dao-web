@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from eth_utils import is_address
 from pydantic import field_validator, model_validator
@@ -24,6 +25,12 @@ class Settings(BaseSettings):
     siwe_chain_id: int = 1
     nonce_ttl_seconds: int = 300
 
+    # 链上邮园：未配置已验证的测试网合约前保持关闭。
+    game_enabled: bool = False
+    game_chain_id: int = 84532
+    game_contract_address: str = ""
+    game_rpc_url: str = "https://sepolia.base.org"
+
     # 登录态 JWT
     jwt_secret: str = "dev-only-secret-change-me"
     jwt_algorithm: str = "HS256"
@@ -46,6 +53,20 @@ class Settings(BaseSettings):
                     "非本地环境的 JWT_SECRET 至少需要 32 个非空白字符；"
                     "可用 `openssl rand -hex 32` 生成"
                 )
+        if self.game_enabled and not is_address(self.game_contract_address):
+            raise ValueError("启用链上邮园前必须设置有效的 GAME_CONTRACT_ADDRESS")
+        if (
+            self.game_enabled
+            and self.environment.lower() not in {"local", "development", "dev", "test"}
+            and self.game_chain_id != 84532
+        ):
+            raise ValueError("生产环境只允许在 Base Sepolia 启用链上邮园")
+        if (
+            self.game_enabled
+            and self.environment.lower() not in {"local", "development", "dev", "test"}
+            and urlsplit(self.game_rpc_url).scheme != "https"
+        ):
+            raise ValueError("生产环境的 GAME_RPC_URL 必须使用 HTTPS")
         return self
 
     # 图片上传：头像 2MB；主页背景图与 markdown 内嵌图片 4MB

@@ -9,6 +9,7 @@ import type {
   CommentPage,
   CommunityEvent,
   CommunityEventPayload,
+  GameConfig,
   InboxFeed,
   InboxItem,
   Member,
@@ -112,6 +113,9 @@ async function download(path: string): Promise<Blob> {
 }
 
 export const api = {
+  gameStatus: (signal?: AbortSignal) =>
+    request<{ enabled: boolean }>('/game/status', { signal, cache: 'no-store' }),
+
   members: (q = '', offset = 0, signal?: AbortSignal) =>
     request<PageResult<Member>>(
       `/members?q=${encodeURIComponent(q)}&offset=${offset}&limit=12`,
@@ -154,11 +158,14 @@ export const api = {
   unfeatureMember: (address: string) =>
     request<void>(`/admin/members/${address}`, { method: 'DELETE' }),
 
-  nonce: (address: string) =>
+  nonce: (address: string, chainId = 1) =>
     request<Challenge>('/auth/nonce', {
       method: 'POST',
-      body: JSON.stringify({ address }),
+      body: JSON.stringify({ address, chain_id: chainId }),
     }),
+
+  gameConfig: (signal?: AbortSignal) =>
+    request<GameConfig>('/game/config', { signal, cache: 'no-store' }),
 
   verify: (message: string, signature: string) =>
     request<TokenResponse>('/auth/verify', {

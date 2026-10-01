@@ -45,6 +45,10 @@ x-api: &api
     SIWE_URI: ${PUBLIC_WEB_ORIGIN:-http://localhost:3000}
     JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
     ADMIN_ADDRESSES: ${ADMIN_ADDRESSES:-[]}
+    GAME_ENABLED: ${GAME_ENABLED:-false}
+    GAME_CHAIN_ID: ${GAME_CHAIN_ID:-84532}
+    GAME_CONTRACT_ADDRESS: ${GAME_CONTRACT_ADDRESS:-}
+    GAME_RPC_URL: ${GAME_RPC_URL:-https://sepolia.base.org}
   volumes:
     - api-data:/data
   mem_limit: 384m

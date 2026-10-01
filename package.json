@@ -18,5 +18,8 @@
     "test:api": "python -m pytest apps/api",
     "docker:up": "docker compose -f docker/docker-compose.yml up --build",
     "docker:down": "docker compose -f docker/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "5.4.0"
   }
 }

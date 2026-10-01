@@ -38,6 +38,8 @@ Content-Type: application/json
 
 `message` 是后端按 EIP-4361 拼好的原文，**必须原样签名**。同一钱包在挑战未过期时重复申请会返回同一个 nonce，成功登录后该 nonce 只能消费一次；默认有效期 300 秒（`NONCE_TTL_SECONDS`）。
 
+`/api/auth/nonce` 的 body 可选传 `chain_id`。默认仍为主网 `1`；连接 Base Sepolia 钱包时传 `84532`，服务端仅接受配置允许的网络。签名网络与服务端生成的消息必须一致。
+
 **第 2 步：签名并换取 token**
 
 用钱包插件对 `message` 签名，然后：
@@ -98,6 +100,15 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
 | GET | `/api/health` | 公开 | 数据库可用时返回 `{"status":"ok"}`；数据库不可用时返回 503，供容器与部署探针识别故障。响应不暴露部署环境信息 |
+
+## 链上邮园 `game`
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/game/status` | 公开 | 只返回 `{"enabled": boolean}`；导航仅在开放时显示；`no-store` |
+| GET | `/api/game/config` | 登录且未封禁 | 返回 `enabled`、`chain_id`、启用后才返回的 `contract_address`、`rpc_url`、区块浏览器与测试币指引；`private, no-store` |
+
+个人建筑、资源、公共项目和通行证**不保存在本站数据库**，由浏览器直接读取链上合约。成员通过钱包在 Base Sepolia 发送 `join()`、`collect()`、`upgrade(0|1)` 和 `contribute(amount)` 交易；官网不托管私钥、不收取报名费或游戏币。链上数据本身公开，即使网站要求登录，仍可以通过区块浏览器直接查看；登录限制只约束本站界面与配置接口。
 
 ## 站点配置 `site`
 

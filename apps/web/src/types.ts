@@ -237,3 +237,11 @@ export interface PageResult<T> {
 export interface CommentPage extends PageResult<Comment> {
   has_more: boolean;
 }
+export interface GameConfig {
+  enabled: boolean;
+  chain_id: number;
+  contract_address: `0x${string}` | null;
+  rpc_url: string;
+  explorer_url: string | null;
+  faucet_url: string | null;
+}

@@ -17,7 +17,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
+import { baseSepolia, foundry, mainnet } from 'wagmi/chains';
 
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -35,12 +35,12 @@ function injectedOnly<A extends unknown[]>(create: (...args: A) => Wallet) {
 }
 
 // 没接 WalletConnect，projectId 只是 getDefaultConfig 的占位参数，不会真正使用。
-const config = getDefaultConfig({
+export const config = getDefaultConfig({
   appName: 'BUPT3DAO',
   appDescription: '北京邮电大学 Web3 社区',
   appUrl: 'https://bupt3dao.club',
   projectId: 'bupt3dao-injected-wallets',
-  chains: [mainnet],
+  chains: [mainnet, baseSepolia, foundry],
   ssr: true,
   wallets: [
     {
