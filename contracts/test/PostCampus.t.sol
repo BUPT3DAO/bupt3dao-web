@@ -73,6 +73,113 @@ contract PostCampusTest {
         require(player.knowledge == 70 && player.compute == 70);
     }
 
+    function testPendingIsZeroBeforeJoiningAndImmediatelyAfterJoining() public {
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0);
+        _join(ALICE);
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0);
+    }
+
+    function testPendingReportsOneHourWithoutSettling() public {
+        _join(ALICE);
+        vm.warp(block.timestamp + 1 hours);
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 10 && compute == 10, "one-hour pending rewards");
+        (uint256 againKnowledge, uint256 againCompute) = game.getPending(ALICE);
+        require(againKnowledge == knowledge && againCompute == compute, "view must not settle");
+        vm.prank(ALICE);
+        game.collect();
+        PostCampus.Player memory player = game.getPlayer(ALICE);
+        require(player.knowledge == 70 && player.compute == 70);
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0, "collection resets pending");
+    }
+
+    function testPendingPreservesFractionsAcrossRepeatedCollections() public {
+        _join(ALICE);
+        for (uint256 i = 0; i < 4; ++i) {
+            vm.warp(block.timestamp + 15 minutes);
+            (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+            uint256 expected = i % 2 == 0 ? 2 : 3;
+            require(knowledge == expected && compute == expected, "fractional carry");
+            vm.prank(ALICE);
+            game.collect();
+            (knowledge, compute) = game.getPending(ALICE);
+            require(knowledge == 0 && compute == 0);
+        }
+        PostCampus.Player memory player = game.getPlayer(ALICE);
+        require(player.knowledge == 70 && player.compute == 70);
+    }
+
+    function testPendingReflectsDifferentBuildingLevels() public {
+        _join(ALICE);
+        vm.prank(ALICE);
+        game.upgrade(0);
+        vm.warp(block.timestamp + 1 hours);
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 10 && compute == 20, "different production rates");
+        vm.prank(ALICE);
+        game.collect();
+        PostCampus.Player memory player = game.getPlayer(ALICE);
+        require(player.knowledge == 20 && player.compute == 30);
+    }
+
+    function testPendingCapsOfflineTimeAtOneDay() public {
+        _join(ALICE);
+        vm.warp(block.timestamp + 72 hours);
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 240 && compute == 240, "24-hour cap");
+        vm.prank(ALICE);
+        game.collect();
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0);
+    }
+
+    function testContributionSettlesPendingAndAccrualContinues() public {
+        _join(ALICE);
+        vm.warp(block.timestamp + 1 hours);
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 10 && compute == 10);
+        vm.prank(ALICE);
+        game.contribute(1);
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0);
+        vm.warp(block.timestamp + 1 hours);
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 10 && compute == 10);
+    }
+
+    function testPendingRemainsReadableWhilePaused() public {
+        _join(ALICE);
+        game.setPaused(true);
+        vm.warp(block.timestamp + 1 hours);
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == 10 && compute == 10);
+        game.setPaused(false);
+        vm.prank(ALICE);
+        game.collect();
+        (knowledge, compute) = game.getPending(ALICE);
+        require(knowledge == 0 && compute == 0);
+    }
+
+    function testFuzzPendingMatchesPreviewAndCollection(uint32 waitSeconds) public {
+        _join(ALICE);
+        vm.warp(block.timestamp + uint256(waitSeconds));
+        uint256 capped = waitSeconds > 24 hours ? 24 hours : waitSeconds;
+        uint256 expected = capped * 10 / 1 hours;
+        (uint256 knowledge, uint256 compute) = game.getPending(ALICE);
+        require(knowledge == expected && compute == expected, "pending equals accrued rewards");
+        PostCampus.Player memory preview = game.getPlayer(ALICE);
+        require(preview.knowledge == 60 + knowledge && preview.compute == 60 + compute);
+        if (expected != 0) {
+            vm.prank(ALICE);
+            game.collect();
+            (knowledge, compute) = game.getPending(ALICE);
+            require(knowledge == 0 && compute == 0);
+        }
+    }
+
     function testCannotSpendUnownedResourcesOrCrossRounds() public {
         _join(ALICE);
         vm.prank(ALICE);

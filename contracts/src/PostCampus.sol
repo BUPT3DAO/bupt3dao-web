@@ -181,8 +181,12 @@ contract PostCampus is ERC721, IERC5192 {
         returns (uint256 knowledge, uint256 compute)
     {
         Player memory previous = _players[account];
+        // _preview mutates its memory argument; retain the unsettled balances
+        // as scalars before passing the struct so the difference is not erased.
+        uint256 knowledgeBefore = previous.knowledge;
+        uint256 computeBefore = previous.compute;
         Player memory current = _preview(previous);
-        return (current.knowledge - previous.knowledge, current.compute - previous.compute);
+        return (current.knowledge - knowledgeBefore, current.compute - computeBefore);
     }
 
     function locked(uint256 tokenId) external view returns (bool) {
