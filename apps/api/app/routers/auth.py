@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import User
 from app.schemas import NonceRequest, NonceResponse, TokenResponse, UserPublic, VerifyRequest
@@ -28,8 +29,11 @@ def issue_nonce(payload: NonceRequest, db: Session = Depends(get_db)) -> NonceRe
     except SiweError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
+    if payload.chain_id not in {settings.siwe_chain_id, 84532, settings.game_chain_id}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "登录网络不受支持")
+
     nonce = nonce_store.issue(db, address)
-    return NonceResponse(nonce=nonce, message=build_message(address, nonce))
+    return NonceResponse(nonce=nonce, message=build_message(address, nonce, payload.chain_id))
 
 
 @router.post("/verify", response_model=TokenResponse)

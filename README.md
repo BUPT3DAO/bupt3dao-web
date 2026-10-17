@@ -14,6 +14,7 @@
 | 消息提示 | 有人回复你的帖子或评论时收到站内消息，未读数显示在侧边栏，点开即已读并跳到对应帖子。 |
 | 文章 | Markdown 长文发布与编辑、置顶、手动排序。 |
 | 活动中心 | 已登录成员可查看活动与会后资料、关注活动并设置站内提醒、跳转外部报名和下载日历；管理员负责草稿、发布与取消。 |
+| 链上邮园 | 可选开启的 Base Sepolia 教学链游：登录成员建设个人校园、参与公共项目、领取不可转让通行证；开启前入口隐藏。 |
 | 个人主页 | 昵称、头像、主页背景图、入学年份、学院、专业、学校、个人链接。 |
 | 成员风采 | 由管理员挑选并维护的成员展示位，展示介绍支持 Markdown。 |
 | 首页公告 | 首页首屏最上方展示公告，内容支持 Markdown（标题、列表、链接、加粗）；点角标可收起 / 展开正文。管理员可在后台「站点设置」随时编辑，清空即撤下。未设置时公告条不显示，首屏维持原来的排版。 |
@@ -29,6 +30,7 @@
 | 后端 | FastAPI、SQLAlchemy 2、Pydantic v2 |
 | 数据库 | SQLite（默认，单文件）；可通过 `DATABASE_URL` 换成 Postgres |
 | 认证 | SIWE / EIP-4361（eth-account 做签名恢复）+ JWT（HS256） |
+| 链游合约 | Solidity 0.8.28 + OpenZeppelin 5.4.0 + Foundry；默认 Base Sepolia |
 | 部署 | Docker Compose + Caddy 网关，蓝绿发布 |
 | 流水线 | GitHub Actions + GHCR |
 
@@ -47,6 +49,7 @@
 │       ├── app/siwe.py       # EIP-4361 消息构造与签名校验
 │       └── tests/            # pytest 用例
 ├── docker/                   # Compose、Caddy 配置、部署脚本
+├── contracts/                # 链上邮园合约与 Foundry 测试
 ├── docs/                     # 开发者文档
 ├── .github/workflows/        # ci.yml（检查）、release.yml（部署）
 ├── package.json              # 根级脚本入口
@@ -105,12 +108,13 @@ pnpm dev:web                        # http://localhost:3000
 | [docs/deployment.md](docs/deployment.md) | 服务器目录布局、`.env` 配置、蓝绿切换、备份与排障 |
 | [docs/api.md](docs/api.md) | 后端接口清单与认证方式 |
 | [docs/development.md](docs/development.md) | 本地开发流程、代码规范、依赖升级注意事项 |
+| [docs/onchain-campus.md](docs/onchain-campus.md) | 链游玩法、合约部署、上线门槛与停用方法 |
 
 ## 贡献
 
 1. 从 `main` 切出功能分支。
 2. 提交信息用中文，遵循 `feat:` / `fix:` / `chore:` / `docs:` 前缀。
-3. 提 PR，CI（前端 lint + 类型检查 + 构建、后端 ruff + pytest）必须全绿。
+3. 提 PR，CI（前端、后端、合约及镜像检查）必须全绿。
 4. 评审通过后合并到 `main`，自动部署。
 
 升级依赖前请先读 [docs/development.md](docs/development.md#依赖升级注意事项)，其中记录了若干**不能随手升级**的包。

@@ -77,6 +77,42 @@ jobs:
       - name: 测试
         run: pytest
 
+  contracts:
+    name: Contracts / format + tests + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: 安装 Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: 安装合约依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 安装 Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
+
+      - name: 检查格式
+        working-directory: contracts
+        run: forge fmt --check
+
+      - name: 合约测试
+        working-directory: contracts
+        run: forge test
+
+      - name: 合约构建
+        working-directory: contracts
+        run: forge build
+
   docker:
     name: Docker / ${{ matrix.app }} image
     if: github.event_name == 'pull_request'

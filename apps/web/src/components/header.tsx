@@ -20,6 +20,9 @@ function pageName(pathname: string): string {
   if (pathname === '/articles') return '文章墙';
   if (pathname === '/events') return '活动中心';
   if (pathname === '/events/mine') return '我的活动';
+  if (pathname === '/game') return '链上邮园';
+  if (pathname === '/game/campus') return '我的链上邮园';
+  if (pathname === '/game/learn') return '链游指南';
   if (/^\/events\/\d+$/.test(pathname)) return '活动详情';
   if (pathname === '/articles/new') return '写文章';
   if (/^\/articles\/\d+\/edit$/.test(pathname)) return '编辑文章';
@@ -37,8 +40,17 @@ export function Header() {
   const [isMobile, setIsMobile] = useState(false);
   const [unread, setUnread] = useState(0);
   const [unreadAddress, setUnreadAddress] = useState<string | null>(null);
+  const [gameEnabled, setGameEnabled] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const busy = status === 'loading' || status === 'connecting';
+
+  useEffect(() => {
+    const controller = new AbortController();
+    api.gameStatus(controller.signal).then((result) => {
+      if (!controller.signal.aborted) setGameEnabled(result.enabled);
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   // 每次换页面顺手刷新一次未读数，读到消息后角标立刻跟上
   useEffect(() => {
@@ -262,6 +274,14 @@ export function Header() {
             <Icon name="calendar" />
             活动中心
           </Link>
+          {gameEnabled && <Link
+            className={pathname.startsWith('/game') ? 'active' : ''}
+            href="/game"
+            aria-current={pathname === '/game' ? 'page' : undefined}
+          >
+            <Icon name="spark" />
+            链上邮园
+          </Link>}
           {user && <Link
             className={pathname === '/events/mine' ? 'active' : ''}
             href="/events/mine"

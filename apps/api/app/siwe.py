@@ -59,7 +59,7 @@ def normalize_address(address: str) -> str:
     return address.lower()
 
 
-def build_message(address: str, nonce: str) -> str:
+def build_message(address: str, nonce: str, chain_id: int | None = None) -> str:
     """按 EIP-4361 拼装待签名消息。"""
     issued_at = datetime.now(timezone.utc)
     lines = [
@@ -72,7 +72,7 @@ def build_message(address: str, nonce: str) -> str:
     lines += [
         f"URI: {settings.siwe_uri}",
         "Version: 1",
-        f"Chain ID: {settings.siwe_chain_id}",
+        f"Chain ID: {chain_id if chain_id is not None else settings.siwe_chain_id}",
         f"Nonce: {nonce}",
         f"Issued At: {_rfc3339(issued_at)}",
         f"Expiration Time: {_rfc3339(issued_at + timedelta(seconds=settings.nonce_ttl_seconds))}",
@@ -136,7 +136,7 @@ def verify_message(message: str, signature: str, expected_nonce: str | None) -> 
         raise SiweError("签名 URI 不匹配")
     if parsed.version != "1":
         raise SiweError("签名版本不受支持")
-    if parsed.chain_id != settings.siwe_chain_id:
+    if parsed.chain_id not in {settings.siwe_chain_id, 84532, settings.game_chain_id}:
         raise SiweError("签名网络不匹配")
 
     now = datetime.now(timezone.utc)

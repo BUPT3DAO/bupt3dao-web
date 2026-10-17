@@ -95,6 +95,7 @@ sudo chmod 600 /opt/bupt3dao/.env
 | `ENVIRONMENT` | 否 | 标记应用运行环境，默认 `production`；不通过公开健康检查响应返回 |
 | `TAG` | 否 | 镜像标签。compose 里默认 `latest`，但**部署脚本会显式传 `TAG=sha-<SHA>`**，不要依赖这个默认值 |
 | `DATABASE_URL` | 否 | 默认 `sqlite:////data/app.db`（容器内绝对路径，注意是四个斜杠）。可换成 `postgresql+psycopg://user:pass@db:5432/bupt3dao` |
+| `GAME_ENABLED` / `GAME_CONTRACT_ADDRESS` / `GAME_RPC_URL` | 否 | 链游默认关闭。通过测试网部署和审查后，按 [链游上线步骤](onchain-campus.md) 设置合约地址与 RPC，最后改为 `GAME_ENABLED=true` 并重新部署 |
 
 ### 由 compose 注入给 API 的环境变量
 

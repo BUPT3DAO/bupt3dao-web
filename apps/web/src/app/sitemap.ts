@@ -41,7 +41,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getAllItems<Member>((offset) => `/members?offset=${offset}&limit=${PAGE_SIZE}`),
   ]);
 
-  const staticEntries: MetadataRoute.Sitemap = ['/', '/forum', '/articles', '/members', '/guide'].map(
+  const staticEntries: MetadataRoute.Sitemap = ['/', '/forum', '/articles', '/members', '/guide', '/game', '/game/learn'].map(
     (path) => ({ url: new URL(path, SITE_ORIGIN).toString() }),
   );
   const profileDates = new Map<string, string>();

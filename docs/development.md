@@ -63,6 +63,7 @@ pnpm docker:down
 | `pnpm lint:api` | 后端 `ruff check apps/api` |
 | `pnpm format:api` | 后端 `ruff format apps/api` |
 | `pnpm test:api` | 后端 `pytest apps/api` |
+| `cd contracts && forge fmt --check && forge test && forge build` | 链游合约格式、测试与构建（需 Foundry） |
 
 **提交前至少跑一遍**：`pnpm lint:web && pnpm typecheck:web && pnpm lint:api && pnpm test:api`。CI 里比这还多一项 `ruff format --check`（只检查不修改），所以本地记得先 `pnpm format:api`。
 

@@ -5,6 +5,7 @@ node_modules/
 # 构建产物
 .next/
 out/
+contracts/cache/
 dist/
 build/
 *.tsbuildinfo

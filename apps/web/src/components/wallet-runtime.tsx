@@ -2,7 +2,7 @@
 
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
+import { useAccount, useChainId, useSignMessage } from 'wagmi';
 
 import { Web3Providers } from '@/components/web3-providers';
 import { ApiError, api, setToken } from '@/lib/api';
@@ -39,6 +39,7 @@ function WalletConnector(props: WalletRuntimeProps) {
   } = props;
   const { openConnectModal } = useConnectModal();
   const { address: account, status: accountStatus } = useAccount();
+  const chainId = useChainId();
   const { signMessageAsync } = useSignMessage();
   const [awaitingAccount, setAwaitingAccount] = useState(false);
   const handledRequest = useRef(0);
@@ -50,8 +51,11 @@ function WalletConnector(props: WalletRuntimeProps) {
       authenticating.current = true;
       onConnecting();
       try {
-        // 挑战消息仍由后端按 EIP-4361 生成，换钱包不影响登录流程
-        const challenge = await api.nonce(walletAddress);
+        // 在非游戏链上的成员仍沿用原来的主网 SIWE 挑战，避免升级后挡住已有钱包。
+        const loginChainId = chainId === 84532 || chainId === 1
+          || (chainId === 31337 && window.location.hostname === 'localhost')
+          ? chainId : 1;
+        const challenge = await api.nonce(walletAddress, loginChainId);
         const signature = await signMessageAsync({ message: challenge.message });
         const session = await api.verify(challenge.message, signature);
         onAuthenticated(session.access_token, session.user);
@@ -62,7 +66,7 @@ function WalletConnector(props: WalletRuntimeProps) {
         authenticating.current = false;
       }
     },
-    [onAuthenticated, onAuthenticationError, onConnecting, signMessageAsync],
+    [chainId, onAuthenticated, onAuthenticationError, onConnecting, signMessageAsync],
   );
 
   // 钱包换账户后使旧登录态失效；仅在用户主动启用钱包运行时后监听。
