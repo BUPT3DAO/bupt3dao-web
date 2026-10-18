@@ -56,6 +56,8 @@ pnpm --filter web exec playwright install chromium
 CAMPUS_TEST_PRODUCTION=1 pnpm --filter web test:e2e
 ```
 
+指定性能测试设备上额外运行 `CAMPUS_TEST_PRODUCTION=1 CAMPUS_PERFORMANCE_BENCHMARK=1 pnpm --filter web test:e2e`。共享 CI 的 SwiftShader CPU 不用于判定实机帧率目标；CI 仍记录原始 FPS 并验证动画、交互、暂停恢复和资源释放。本地回归门槛与实际 60／30 FPS 目标的区别见验收记录。
+
 Playwright 使用模拟 API、JSON-RPC 和测试 EIP-1193 钱包，不发送公共测试网交易。测试截图、录屏、性能记录与 JSON 报告生成在 `apps/web/test-results/`，CI 上传为 `campus-browser-results` artifact。浏览器使用 SwiftShader，手机测试为触屏模拟，不代表实机手机测试。
 
 本地整链联调：启动 `anvil --host 127.0.0.1 --port 8545`，在该本地链部署一份全新 PostCampus，然后运行：
