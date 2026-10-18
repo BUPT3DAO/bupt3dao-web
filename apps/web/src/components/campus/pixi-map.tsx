@@ -31,11 +31,13 @@ export interface MapCommands {
 }
 export default function PixiCampusMap({
   model,
+  effectLedger,
   onSelect,
   onReady,
   onError,
 }: {
   model: CampusViewModel;
+  effectLedger: Set<string>;
   onSelect: (id: LandmarkId) => void;
   onReady: (commands: MapCommands | null) => void;
   onError: () => void;
@@ -192,7 +194,9 @@ export default function PixiCampusMap({
       let previousModel = '';
       let closeAssets = false;
       let flashAt = 0;
-      let lastEffect = '';
+      let activeEffect = '';
+      let effectCount = 0;
+      element.dataset.effectCount = '0';
       let elapsed = 0;
       let frames = 0;
       const npc = Array.from({ length: 8 }, (_, i) => {
@@ -294,8 +298,10 @@ export default function PixiCampusMap({
               .ellipse(800, 644, 28, 12)
               .fill(0xcab783);
         }
-        if (m.effect && lastEffect !== m.effect.id) {
-          lastEffect = m.effect.id;
+        if (m.effect && !effectLedger.has(m.effect.id)) {
+          effectLedger.add(m.effect.id);
+          activeEffect = m.effect.id;
+          element.dataset.effectCount = String(++effectCount);
           flashAt = elapsed;
         }
       }
@@ -345,7 +351,12 @@ export default function PixiCampusMap({
             color: m.daylight === 'night' ? 0xffdc94 : 0x697455,
             width: 3,
           });
-        if (m.effect && !m.reducedMotion && elapsed - flashAt < 2000) {
+        if (
+          m.effect &&
+          activeEffect === m.effect.id &&
+          !m.reducedMotion &&
+          elapsed - flashAt < 2000
+        ) {
           const l = LANDMARKS.find((l) => l.id === m.effect!.landmark)!;
           const t = (elapsed - flashAt) / 2000;
           selection
@@ -563,7 +574,7 @@ export default function PixiCampusMap({
       live.current.onReady(null);
       if (initialized && app.renderer) app.destroy(true, { children: true });
     };
-  }, []);
+  }, [effectLedger]);
   return (
     <div
       ref={host}

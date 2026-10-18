@@ -66,6 +66,12 @@ export function CampusMapView({
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const commands = useRef<MapCommands | null>(null);
+  // Keep consumed visual events outside either renderer so switching views
+  // cannot replay a transaction or an already-observed public round.
+  const effectLedger = useRef(new Set<string>());
+  useEffect(() => {
+    if (renderer === 'classic' && effect) effectLedger.current.add(effect.id);
+  }, [renderer, effect]);
   const pendingFocus = useRef(false);
   const currentSelected = useRef(selected);
   currentSelected.current = selected;
@@ -198,6 +204,7 @@ export function CampusMapView({
         ) : (
           <>
             <PixiMap
+              effectLedger={effectLedger.current}
               model={{
                 player,
                 completedRounds,

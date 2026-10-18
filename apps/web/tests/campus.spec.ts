@@ -216,6 +216,8 @@ test('simulated wallet collection confirms and refreshes without double counting
   await fixture(page);
   await testWallet(page);
   await page.goto('/game/campus');
+  const map = page.getByTestId('campus-canvas');
+  await expect(map).toHaveAttribute('data-ready', 'true');
   await expect(
     page.getByRole('button', { name: '领取资源', exact: true }),
   ).toBeEnabled();
@@ -230,6 +232,12 @@ test('simulated wallet collection confirms and refreshes without double counting
   await expect(
     page.getByRole('button', { name: '领取资源', exact: true }),
   ).toBeDisabled();
+  await expect(map).toHaveAttribute('data-effect-count', '1');
+  await page.getByRole('button', { name: '经典视图', exact: true }).click();
+  await expect(page.locator('.campus-pixi-host canvas')).toHaveCount(0);
+  await page.getByRole('button', { name: '微缩视图', exact: true }).click();
+  await expect(map).toHaveAttribute('data-ready', 'true');
+  await expect(map).toHaveAttribute('data-effect-count', '0');
 });
 
 test('simulated wallet rejection shows no success', async ({ page }) => {
@@ -559,12 +567,18 @@ test('camera gestures, context loss, and repeated scene cleanup', async ({
   await expect(map).toHaveAttribute('data-running', 'false');
   await page.getByLabel('减少动态效果').uncheck();
   await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    Object.defineProperty(document, 'hidden', {
+      value: true,
+      configurable: true,
+    });
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(map).toHaveAttribute('data-running', 'false');
   await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    Object.defineProperty(document, 'hidden', {
+      value: false,
+      configurable: true,
+    });
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(map).toHaveAttribute('data-running', 'true');
@@ -580,8 +594,17 @@ test('camera gestures, context loss, and repeated scene cleanup', async ({
   }
   await memory.send('HeapProfiler.collectGarbage');
   const heapAfter = await memory.send('Runtime.getHeapUsage');
-  const lifecycle = { heapBeforeBytes: heapBefore.usedSize, heapAfterBytes: heapAfter.usedSize, heapGrowthBytes: heapAfter.usedSize - heapBefore.usedSize, sceneReentries: 3, remainingCanvases: await page.locator('.campus-pixi-host canvas').count() };
-  await testInfo.attach('scene-lifecycle', { body: JSON.stringify(lifecycle, null, 2), contentType: 'application/json' });
+  const lifecycle = {
+    heapBeforeBytes: heapBefore.usedSize,
+    heapAfterBytes: heapAfter.usedSize,
+    heapGrowthBytes: heapAfter.usedSize - heapBefore.usedSize,
+    sceneReentries: 3,
+    remainingCanvases: await page.locator('.campus-pixi-host canvas').count(),
+  };
+  await testInfo.attach('scene-lifecycle', {
+    body: JSON.stringify(lifecycle, null, 2),
+    contentType: 'application/json',
+  });
   expect(lifecycle.heapGrowthBytes).toBeLessThan(32 * 1024 * 1024);
   await map
     .locator('canvas')
