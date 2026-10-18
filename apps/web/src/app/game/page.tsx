@@ -2,10 +2,11 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 import { Icon } from '@/components/icon';
+import { CampusPublicPreview } from '@/components/campus/public-preview';
 
 export const metadata: Metadata = {
   title: '链上邮园',
-  description: '在 BUPT3DAO 的双校区微缩地图里建设建筑、参与共建，体验真正的测试网交易。',
+  description: '在融合北邮地标的微缩校园里探索、建设建筑、参与共建，体验真正的测试网交易。',
 };
 
 export default function GamePage() {
@@ -34,6 +35,7 @@ export default function GamePage() {
         <article className="card campus-intro-card"><span>02 / BUILD</span><h2>升级自己的校园</h2><p>从知识与算力出发，逐步升级建筑。每个钱包有独立的建设进度，离开后再回来，成长仍保留在链上。</p></article>
         <article className="card campus-intro-card"><span>03 / TOGETHER</span><h2>与成员一起点亮邮园</h2><p>把资源投入全体成员的公共项目，解锁新的广场景观。贡献、完成轮次和个人成就都可以验证。</p></article>
       </div>
+      <CampusPublicPreview />
       <p className="campus-disclaimer">这是供社区学习的测试网游戏。地图将真实地标和虚构玩法结合；游戏资源没有货币用途。</p>
     </div>
   );

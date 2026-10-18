@@ -39,3 +39,5 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+apps/web/test-results/
+apps/web/playwright-report/
