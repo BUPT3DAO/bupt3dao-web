@@ -29,6 +29,8 @@ function pageName(pathname: string): string {
   if (/^\/articles\/\d+$/.test(pathname)) return '文章';
   if (pathname === '/admin') return '管理后台';
   if (pathname === '/guide') return '社区指南';
+  if (pathname === '/handbook') return 'Web3 入门手册';
+  if (pathname.startsWith('/handbook/')) return '入门手册';
   if (pathname === '/settings') return '编辑资料';
   return '个人主页';
 }
@@ -273,6 +275,14 @@ export function Header() {
           >
             <Icon name="calendar" />
             活动中心
+          </Link>
+          <Link
+            className={pathname.startsWith('/handbook') ? 'active' : ''}
+            href="/handbook"
+            aria-current={pathname === '/handbook' ? 'page' : undefined}
+          >
+            <Icon name="cap" />
+            入门手册
           </Link>
           {gameEnabled && <Link
             className={pathname.startsWith('/game') ? 'active' : ''}
