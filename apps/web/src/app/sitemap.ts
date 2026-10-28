@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+import { getReadyChapters } from '@/lib/handbook';
 import { getServerApi } from '@/lib/server-api';
 import type { ArticleSummary, Member, PageResult, PostSummary } from '@/types';
 
@@ -41,9 +42,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getAllItems<Member>((offset) => `/members?offset=${offset}&limit=${PAGE_SIZE}`),
   ]);
 
-  const staticEntries: MetadataRoute.Sitemap = ['/', '/forum', '/articles', '/members', '/guide', '/game', '/game/learn'].map(
-    (path) => ({ url: new URL(path, SITE_ORIGIN).toString() }),
-  );
+  const staticEntries: MetadataRoute.Sitemap = [
+    '/',
+    '/forum',
+    '/articles',
+    '/members',
+    '/guide',
+    '/game',
+    '/game/learn',
+    '/handbook',
+    ...getReadyChapters().map((chapter) => `/handbook/${chapter.slug}`),
+  ].map((path) => ({ url: new URL(path, SITE_ORIGIN).toString() }));
   const profileDates = new Map<string, string>();
   for (const member of members) profileDates.set(member.user.address, member.user.created_at);
   const profileAddresses = new Set<string>([
