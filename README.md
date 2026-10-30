@@ -14,6 +14,7 @@
 | 消息提示 | 有人回复你的帖子或评论时收到站内消息，未读数显示在侧边栏，点开即已读并跳到对应帖子。 |
 | 文章 | Markdown 长文发布与编辑、置顶、手动排序。 |
 | 活动中心 | 已登录成员可查看活动与会后资料、关注活动并设置站内提醒、跳转外部报名和下载日历；管理员负责草稿、发布与取消。 |
+| 社区抽奖 | 已登录成员在 `/lottery` 转盘抽奖，按选项权重随机抽取，不限次数；管理员在后台「抽奖管理」配置标题、说明和转盘选项，查看抽奖记录并标记发放，可开始新一轮。关闭期间入口隐藏。 |
 | 链上邮园 | 可选开启的 Base Sepolia 教学链游：登录成员建设个人校园、参与公共项目、领取不可转让通行证；开启前入口隐藏。 |
 | 个人主页 | 昵称、头像、主页背景图、入学年份、学院、专业、学校、个人链接。 |
 | 成员风采 | 由管理员挑选并维护的成员展示位，展示介绍支持 Markdown。 |
@@ -44,7 +45,7 @@
 │   │   ├── src/components/   # UI 组件（含 web3-providers、wallet-provider）
 │   │   └── src/lib/          # API 客户端、请求转发
 │   └── api/                  # FastAPI 后端
-│       ├── app/routers/      # auth / posts / notifications / users / members / articles / site / admin
+│       ├── app/routers/      # auth / posts / notifications / users / members / articles / lottery / site / admin
 │       ├── app/models.py     # SQLAlchemy 数据模型
 │       ├── app/siwe.py       # EIP-4361 消息构造与签名校验
 │       └── tests/            # pytest 用例

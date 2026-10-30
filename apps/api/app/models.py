@@ -376,3 +376,60 @@ class Notification(Base):
     actor: Mapped[User] = relationship(foreign_keys=[actor_id])
     post: Mapped[Post] = relationship()
     comment: Mapped[Comment] = relationship()
+
+
+class LotteryCampaign(Base):
+    """一轮抽奖。前台和后台只操作最新的一轮，旧轮次保留抽奖记录。"""
+
+    __tablename__ = "lottery_campaigns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(80), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    is_open: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    prizes: Mapped[list["LotteryPrize"]] = relationship(
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        order_by="(LotteryPrize.sort_order, LotteryPrize.id)",
+    )
+
+
+class LotteryPrize(Base):
+    """转盘上的一个选项，按 weight 相对权重抽取，不限数量。"""
+
+    __tablename__ = "lottery_prizes"
+    __table_args__ = (Index("ix_lottery_prizes_campaign", "campaign_id", "sort_order"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("lottery_campaigns.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(60))
+    weight: Mapped[int] = mapped_column(default=1)
+    sort_order: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    campaign: Mapped[LotteryCampaign] = relationship(back_populates="prizes")
+
+
+class LotteryDraw(Base):
+    """每次抽奖一行，不限次数。"""
+
+    __tablename__ = "lottery_draws"
+    __table_args__ = (Index("ix_lottery_draws_campaign_created", "campaign_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("lottery_campaigns.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # 选项被删除后，记录仍按抽中时的名字展示
+    prize_id: Mapped[int | None] = mapped_column(
+        ForeignKey("lottery_prizes.id", ondelete="SET NULL"), nullable=True
+    )
+    prize_name: Mapped[str] = mapped_column(String(60))
+    delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    user: Mapped[User] = relationship()

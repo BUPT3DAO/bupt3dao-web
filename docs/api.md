@@ -240,6 +240,32 @@ Authorization: Bearer <token>
 
 所有管理接口都要求管理员身份。活动不保存站内报名名单；报名链接由外部平台处理。
 
+## 社区抽奖 `lottery`
+
+只有最新一轮生效。抽奖接口响应设置 `Cache-Control: private, no-store`。
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/lottery/status` | 公开 | `{open}`，侧边栏据此决定是否显示入口 |
+| GET | `/api/lottery` | 公开 | 当前轮次的标题、说明、是否开放和转盘选项；从未创建过时 `campaign` 为 `null` |
+| GET | `/api/lottery/me` | 登录 | 自己在本轮最近 50 条抽奖记录 |
+| POST | `/api/lottery/draw` | 登录 | 抽一次，返回抽奖记录，不限次数。未开放或没有可抽选项时返回 409 |
+
+选项按 `weight` 加权随机抽取（`secrets.SystemRandom`），权重为 0 的选项不参与；`chance` 是折算后的百分比。
+
+## 抽奖管理 `admin/lottery`
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/admin/lottery` | 当前轮次设置、选项与统计（参与人数、抽奖次数） |
+| PUT | `/api/admin/lottery` | 保存设置，尚无轮次时创建。body：`{title, description, is_open}` |
+| POST | `/api/admin/lottery/rounds` | 开始新一轮：沿用标题、说明和选项，记录从零开始，新一轮默认关闭；旧轮次记录保留 |
+| POST | `/api/admin/lottery/prizes` | 添加选项。body：`{name, weight}`；每轮最多 12 个 |
+| PUT | `/api/admin/lottery/prizes/{prize_id}` | 修改选项 |
+| DELETE | `/api/admin/lottery/prizes/{prize_id}` | 删除选项；已有记录保留抽中时的名称 |
+| GET | `/api/admin/lottery/records` | 本轮抽奖记录。query：`limit`、`offset` |
+| PATCH | `/api/admin/lottery/draws/{draw_id}` | 标记发放状态。body：`{delivered}` |
+
 ## 成员风采 `members`
 
 | 方法 | 路径 | 权限 | 说明 |

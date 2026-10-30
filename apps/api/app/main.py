@@ -15,6 +15,7 @@ from app.routers import (
     events,
     game,
     inbox,
+    lottery,
     members,
     notifications,
     posts,
@@ -52,6 +53,8 @@ api.include_router(game.router)
 api.include_router(site.router)
 api.include_router(admin.router)
 api.include_router(events.admin_router)
+api.include_router(lottery.router)
+api.include_router(lottery.admin_router)
 
 
 @api.get("/health", tags=["system"])

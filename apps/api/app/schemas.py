@@ -478,3 +478,90 @@ class InboxListOut(BaseModel):
 
 class InboxSummaryOut(BaseModel):
     unread: int
+
+
+LOTTERY_DESCRIPTION_MAX_LENGTH = 2000
+LOTTERY_MAX_PRIZES = 12
+
+
+class LotteryCampaignPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=LOTTERY_DESCRIPTION_MAX_LENGTH)
+    is_open: bool = False
+
+
+class LotteryPrizePayload(BaseModel):
+    """weight 为相对权重，0 表示暂不参与抽取。"""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=60)
+    weight: int = Field(default=1, ge=0, le=100_000)
+
+
+class LotteryPrizeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    weight: int
+    # 百分比，保留一位小数
+    chance: float = 0
+
+
+class LotteryCampaignOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    description: str
+    is_open: bool
+    updated_at: UTCDateTime
+    prizes: list[LotteryPrizeOut] = Field(default_factory=list)
+
+
+class LotteryOut(BaseModel):
+    """前台读取的当前轮次；还没建过抽奖时为空。"""
+
+    campaign: LotteryCampaignOut | None = None
+
+
+class LotteryStatusOut(BaseModel):
+    open: bool
+
+
+class LotteryDrawOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    prize_id: int | None
+    prize_name: str
+    delivered: bool
+    created_at: UTCDateTime
+
+
+class LotteryMineOut(BaseModel):
+    draws: list[LotteryDrawOut]
+
+
+class LotteryAdminOut(BaseModel):
+    campaign: LotteryCampaignOut | None = None
+    participants: int = 0
+    total_draws: int = 0
+
+
+class LotteryRecordOut(LotteryDrawOut):
+    user: UserBrief
+
+
+class LotteryRecordListOut(BaseModel):
+    items: list[LotteryRecordOut]
+    total: int
+
+
+class LotteryDeliveredUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    delivered: bool

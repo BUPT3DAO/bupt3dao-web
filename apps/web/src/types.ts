@@ -245,3 +245,49 @@ export interface GameConfig {
   explorer_url: string | null;
   faucet_url: string | null;
 }
+
+export interface LotteryPrize {
+  id: number;
+  name: string;
+  weight: number;
+  /** 百分比 */
+  chance: number;
+}
+
+export interface LotteryCampaign {
+  id: number;
+  title: string;
+  description: string;
+  is_open: boolean;
+  updated_at: string;
+  prizes: LotteryPrize[];
+}
+
+export interface LotteryCampaignPayload {
+  title: string;
+  description: string;
+  is_open: boolean;
+}
+
+export interface LotteryPrizePayload {
+  name: string;
+  weight: number;
+}
+
+export interface LotteryDraw {
+  id: number;
+  prize_id: number | null;
+  prize_name: string;
+  delivered: boolean;
+  created_at: string;
+}
+
+export interface LotteryAdmin {
+  campaign: LotteryCampaign | null;
+  participants: number;
+  total_draws: number;
+}
+
+export interface LotteryRecord extends LotteryDraw {
+  user: UserBrief;
+}

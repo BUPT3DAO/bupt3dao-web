@@ -12,6 +12,12 @@ import type {
   GameConfig,
   InboxFeed,
   InboxItem,
+  LotteryAdmin,
+  LotteryCampaign,
+  LotteryCampaignPayload,
+  LotteryDraw,
+  LotteryPrizePayload,
+  LotteryRecord,
   Member,
   MemberDetails,
   MoveDirection,
@@ -113,6 +119,64 @@ async function download(path: string): Promise<Blob> {
 }
 
 export const api = {
+  lotteryStatus: (signal?: AbortSignal) =>
+    request<{ open: boolean }>('/lottery/status', { signal, cache: 'no-store' }),
+
+  lottery: (signal?: AbortSignal) =>
+    request<{ campaign: LotteryCampaign | null }>('/lottery', { signal, cache: 'no-store' }),
+
+  lotteryMine: (signal?: AbortSignal) =>
+    request<{ draws: LotteryDraw[] }>('/lottery/me', { signal, cache: 'no-store' }),
+
+  drawLottery: () =>
+    request<LotteryDraw>('/lottery/draw', {
+      method: 'POST',
+      cache: 'no-store',
+    }),
+
+  adminLottery: (signal?: AbortSignal) =>
+    request<LotteryAdmin>('/admin/lottery', { signal, cache: 'no-store' }),
+
+  saveLottery: (payload: LotteryCampaignPayload) =>
+    request<LotteryAdmin>('/admin/lottery', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }),
+
+  newLotteryRound: () =>
+    request<LotteryAdmin>('/admin/lottery/rounds', { method: 'POST', cache: 'no-store' }),
+
+  addLotteryPrize: (payload: LotteryPrizePayload) =>
+    request<LotteryAdmin>('/admin/lottery/prizes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }),
+
+  updateLotteryPrize: (id: number, payload: LotteryPrizePayload) =>
+    request<LotteryAdmin>(`/admin/lottery/prizes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }),
+
+  deleteLotteryPrize: (id: number) =>
+    request<LotteryAdmin>(`/admin/lottery/prizes/${id}`, { method: 'DELETE', cache: 'no-store' }),
+
+  lotteryRecords: (offset = 0, signal?: AbortSignal) =>
+    request<PageResult<LotteryRecord>>(`/admin/lottery/records?offset=${offset}&limit=20`, {
+      signal,
+      cache: 'no-store',
+    }),
+
+  markLotteryDelivered: (id: number, delivered: boolean) =>
+    request<LotteryDraw>(`/admin/lottery/draws/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ delivered }),
+      cache: 'no-store',
+    }),
+
   gameStatus: (signal?: AbortSignal) =>
     request<{ enabled: boolean }>('/game/status', { signal, cache: 'no-store' }),
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { AdminArticleRow } from '@/components/admin-article-row';
 import { AdminEventsPanel } from '@/components/admin-events-panel';
+import { AdminLotteryPanel } from '@/components/admin-lottery-panel';
 import { AdminUserCard } from '@/components/admin-user-card';
 import { Avatar } from '@/components/avatar';
 import { Markdown } from '@/components/markdown';
@@ -14,14 +15,15 @@ import { api } from '@/lib/api';
 import { shortAddress, userMetaLine } from '@/lib/format';
 import type { AdminEntry, AdminUser, ArticleSummary, PostSummary } from '@/types';
 
-const tabs = ['用户管理', '帖子管理', '文章管理', '活动管理', '校友墙管理', '站点设置', '管理员'] as const;
+const tabs = ['用户管理', '帖子管理', '文章管理', '活动管理', '抽奖管理', '校友墙管理', '站点设置', '管理员'] as const;
 type Tab = (typeof tabs)[number];
 
-const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'calendar' | 'spark' | 'image' | 'shield'> = {
+const tabIcons: Record<Tab, 'user' | 'message' | 'book' | 'calendar' | 'gift' | 'spark' | 'image' | 'shield'> = {
   用户管理: 'user',
   帖子管理: 'message',
   文章管理: 'book',
   活动管理: 'calendar',
+  抽奖管理: 'gift',
   校友墙管理: 'spark',
   站点设置: 'image',
   管理员: 'shield',
@@ -55,7 +57,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user?.is_admin) return;
-    if (tab === '活动管理') {
+    // 活动与抽奖面板自己加载数据
+    if (tab === '活动管理' || tab === '抽奖管理') {
       setLoading(false);
       return;
     }
@@ -256,7 +259,7 @@ export default function AdminPage() {
     };
   });
   const isEmpty =
-    tab === '活动管理'
+    tab === '活动管理' || tab === '抽奖管理'
       ? false
       : tab === '帖子管理'
       ? posts.length === 0
@@ -298,6 +301,8 @@ export default function AdminPage() {
           <p>
             {tab === '管理员'
               ? '管理员可以添加新的管理员，无需审批；对方的权限在其钱包登录后立即生效。服务器环境变量里的管理员不在这里移除。'
+              : tab === '抽奖管理'
+                ? ''
               : tab === '活动管理'
                 ? '维护社区活动的草稿、发布时间、报名入口和会后资料。活动内容只向已登录成员开放。'
                 : tab === '站点设置'
@@ -322,7 +327,7 @@ export default function AdminPage() {
           </Link>
         )}
       </div>
-      {tab !== '管理员' && tab !== '站点设置' && tab !== '活动管理' && (
+      {tab !== '管理员' && tab !== '站点设置' && tab !== '活动管理' && tab !== '抽奖管理' && (
         <form className="admin-search" onSubmit={submitSearch}>
           <label className="search-field">
             <Icon name="search" size={17} />
@@ -373,7 +378,7 @@ export default function AdminPage() {
         </div>
       ) : (
         !error &&
-        (tab === '活动管理' ? <AdminEventsPanel /> : tab === '管理员' ? (
+        (tab === '活动管理' ? <AdminEventsPanel /> : tab === '抽奖管理' ? <AdminLotteryPanel /> : tab === '管理员' ? (
           <div className="admin-list">
             <form className="card admin-inline-form admin-add-form" onSubmit={addAdmin}>
               <h3>添加管理员</h3>
@@ -598,7 +603,7 @@ export default function AdminPage() {
           </div>
         )
       ))}
-      {tab !== '站点设置' && tab !== '活动管理' && (
+      {tab !== '站点设置' && tab !== '活动管理' && tab !== '抽奖管理' && (
         <div className="pagination">
           <button
             className="btn btn-ghost btn-sm"

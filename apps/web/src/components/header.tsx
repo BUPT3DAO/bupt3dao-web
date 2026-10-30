@@ -29,6 +29,7 @@ function pageName(pathname: string): string {
   if (/^\/articles\/\d+$/.test(pathname)) return '文章';
   if (pathname === '/admin') return '管理后台';
   if (pathname === '/guide') return '社区指南';
+  if (pathname === '/lottery') return '社区抽奖';
   if (pathname === '/handbook') return 'Web3 入门手册';
   if (pathname.startsWith('/handbook/')) return '入门手册';
   if (pathname === '/settings') return '编辑资料';
@@ -43,6 +44,7 @@ export function Header() {
   const [unread, setUnread] = useState(0);
   const [unreadAddress, setUnreadAddress] = useState<string | null>(null);
   const [gameEnabled, setGameEnabled] = useState(false);
+  const [lotteryOpen, setLotteryOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const busy = status === 'loading' || status === 'connecting';
 
@@ -50,6 +52,9 @@ export function Header() {
     const controller = new AbortController();
     api.gameStatus(controller.signal).then((result) => {
       if (!controller.signal.aborted) setGameEnabled(result.enabled);
+    }).catch(() => undefined);
+    api.lotteryStatus(controller.signal).then((result) => {
+      if (!controller.signal.aborted) setLotteryOpen(result.open);
     }).catch(() => undefined);
     return () => controller.abort();
   }, []);
@@ -284,6 +289,16 @@ export function Header() {
             <Icon name="cap" />
             入门手册
           </Link>
+          {lotteryOpen && (
+            <Link
+              className={pathname === '/lottery' ? 'active' : ''}
+              href="/lottery"
+              aria-current={pathname === '/lottery' ? 'page' : undefined}
+            >
+              <Icon name="gift" />
+              社区抽奖
+            </Link>
+          )}
           {gameEnabled && <Link
             className={pathname.startsWith('/game') ? 'active' : ''}
             href="/game"

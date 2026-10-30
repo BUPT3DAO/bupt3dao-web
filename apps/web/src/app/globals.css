@@ -3145,6 +3145,7 @@ html[data-theme='dark'] {
 }
 .admin-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 17px;
@@ -3152,13 +3153,14 @@ html[data-theme='dark'] {
 .admin-tabs > button {
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 11px 18px;
+  padding: 11px 14px;
   display: flex;
   align-items: center;
   gap: 9px;
   background: none;
   color: var(--muted);
   font-size: 13px;
+  white-space: nowrap;
 }
 .admin-tabs > button.active {
   border-color: var(--line-strong);
@@ -5839,4 +5841,76 @@ a.hb-toc-item:hover { border-color: var(--line-strong); transform: translateY(-1
   .hb-flow-step { flex-direction: column; align-items: stretch; }
   .hb-flow-step + .hb-flow-step { margin: 6px 0 0; }
   .hb-flow-step > svg { align-self: center; transform: rotate(90deg); }
+}
+
+/* 社区抽奖 */
+.lottery-page { max-width: 1100px; margin: 0 auto; }
+.lottery-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.lottery-stage { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 34px 26px 28px; }
+.lottery-wheel { position: relative; width: min(100%, 320px); aspect-ratio: 1; }
+.lottery-wheel svg { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 0 6px var(--accent-soft), 0 14px 34px #2b1a5b1f; transition-property: transform; transition-timing-function: cubic-bezier(0.15, 0.7, 0.18, 1); }
+.lottery-pointer { position: absolute; top: -12px; left: 50%; z-index: 2; width: 0; height: 0; transform: translateX(-50%); border-left: 13px solid transparent; border-right: 13px solid transparent; border-top: 24px solid var(--brand); filter: drop-shadow(0 2px 3px #1d143a33); }
+.lottery-seg { stroke: var(--panel); stroke-width: 2; }
+.lottery-seg.is-odd { fill: var(--accent-soft); }
+.lottery-seg.is-even { fill: var(--surface-soft); }
+.lottery-seg.is-hit { fill: var(--accent); }
+.lottery-label { fill: var(--text); font-size: 13px; font-weight: 650; text-anchor: middle; dominant-baseline: middle; }
+.lottery-label.is-out { fill: var(--muted); text-decoration: line-through; }
+.lottery-hub { fill: var(--panel); stroke: var(--accent-soft); stroke-width: 4; }
+.lottery-action { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lottery-action .btn { min-width: 180px; min-height: 44px; font-size: 14px; }
+.lottery-result { width: 100%; margin: 0; }
+.lottery-stage > .inline-notice { width: 100%; margin: 0; }
+.lottery-side { display: flex; flex-direction: column; gap: 14px; }
+.lottery-panel { padding: 22px 24px; }
+.lottery-panel h3 { display: flex; align-items: baseline; gap: 10px; font-size: 15px; margin-bottom: 10px; }
+.lottery-description { margin-top: 10px; font-size: 13px; }
+.lottery-prizes, .lottery-records, .admin-lottery-winners { list-style: none; margin: 0; padding: 0; }
+.lottery-prizes li { display: grid; grid-template-columns: minmax(0, 1fr) 52px; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px dashed var(--border); font-size: 13px; }
+.lottery-prizes li:first-child { border-top: 0; }
+.lottery-prizes li.is-out { opacity: 0.5; }
+.lottery-prize-name { font-weight: 600; overflow-wrap: anywhere; }
+.lottery-prize-chance { color: var(--accent); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.lottery-records li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--border); font-size: 13px; }
+.lottery-records li:first-child { border-top: 0; }
+.lottery-records li > span:first-child { flex: 1; min-width: 0; color: var(--ink-soft); }
+.lottery-records small { color: var(--muted); font-size: 11px; }
+.lottery-check { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
+.lottery-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.admin-lottery { display: flex; flex-direction: column; gap: 16px; }
+.admin-lottery-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.admin-lottery-stats .card { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; }
+.admin-lottery-stats span { color: var(--muted); font-size: 11px; }
+.admin-lottery-stats strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.admin-lottery-stats strong.is-open { color: var(--accent); }
+.admin-lottery-card { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.admin-lottery-card .admin-event-editor-heading { align-items: flex-start; }
+.admin-lottery-card .admin-event-editor-heading p { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.admin-lottery-card .field { margin-bottom: 0; }
+.admin-lottery-table { margin: 0; }
+.admin-lottery-table td { vertical-align: middle; }
+.admin-lottery-table td small { color: var(--muted); font-weight: 400; }
+.admin-lottery-table tr.is-editing td { background: var(--accent-soft); }
+.admin-lottery-row-actions { display: flex; gap: 6px; justify-content: flex-end; min-width: 0 !important; }
+.admin-lottery-prize-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.admin-lottery-prize-actions { display: flex; gap: 8px; }
+.admin-lottery-winners li { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+.admin-lottery-winners li:first-child { border-top: 0; }
+.admin-lottery-winner { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.admin-lottery-winner span { display: flex; flex-direction: column; min-width: 0; }
+.admin-lottery-winner b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-lottery-winner small { color: var(--muted); }
+.admin-lottery-winner-prize { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; font-weight: 600; }
+.admin-lottery-winner-prize small { color: var(--muted); font-size: 11px; font-weight: 400; }
+
+@media (max-width: 960px) {
+  .lottery-layout { grid-template-columns: 1fr; }
+  .admin-lottery-prize-form { grid-template-columns: 1fr 1fr; }
+  .admin-lottery-prize-form .field:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .lottery-stage { padding: 26px 16px 22px; }
+  .admin-lottery-winners li { flex-wrap: wrap; }
+  .admin-lottery-winner-prize { align-items: flex-start; }
 }
